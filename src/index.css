@@ -1,0 +1,224 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ *
+ * Two layers, deliberately:
+ *
+ *   1. A raw palette (--brand-*, --violet-*) that never changes.
+ *   2. Semantic tokens (--surface-*, --ink-*, --line-*) that flip between light
+ *      and dark. Components only ever name these — `bg-surface`, `text-ink`,
+ *      `border-line` — so a theme change is a change here and nowhere else.
+ *
+ * No component may use an arbitrary hex value (frontend-react skill).
+ */
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans:
+    'Inter', ui-sans-serif, system-ui, 'Segoe UI', Roboto, sans-serif;
+  --font-ethiopic:
+    'Noto Sans Ethiopic', 'Nyala', 'Abyssinica SIL', var(--font-sans);
+
+  /* Brand violet. 600 is the primary action colour in the design. */
+  --color-brand-50: #f4f2ff;
+  --color-brand-100: #ebe6ff;
+  --color-brand-200: #d9d0ff;
+  --color-brand-300: #bcaaff;
+  --color-brand-400: #9c80fb;
+  --color-brand-500: #7f5af0;
+  --color-brand-600: #6c4be8;
+  --color-brand-700: #5a37cf;
+  --color-brand-800: #4a2da8;
+  --color-brand-900: #3d2886;
+  --color-brand-950: #241553;
+
+  /* Status. Used with an icon or label, never as the only signal. */
+  --color-success-50: #ecfdf3;
+  --color-success-500: #12b76a;
+  --color-success-700: #027a48;
+  --color-warning-50: #fffaeb;
+  --color-warning-500: #f79009;
+  --color-warning-700: #b54708;
+  --color-danger-50: #fef3f2;
+  --color-danger-500: #f04438;
+  --color-danger-700: #b42318;
+
+  --radius-card: 1rem;
+  --radius-control: 0.75rem;
+
+  --shadow-soft: 0 1px 2px 0 rgb(17 12 46 / 0.04);
+  --shadow-card: 0 2px 10px -2px rgb(17 12 46 / 0.06);
+  --shadow-lift: 0 12px 32px -12px rgb(76 45 196 / 0.24);
+  --shadow-float: 0 16px 40px -16px rgb(17 12 46 / 0.18);
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Semantic tokens. `inline` so utilities emit var() and follow the theme class
+ * at runtime instead of baking the light value in at build time. */
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-accent: var(--surface-accent);
+
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-inverse: var(--ink-inverse);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-ring: var(--color-brand-500);
+}
+
+:root {
+  --canvas: #f7f6fc;
+  --surface: #ffffff;
+  --surface-raised: #ffffff;
+  --surface-sunken: #faf9fe;
+  --surface-accent: #f2effe;
+
+  --ink: #12101c;
+  --ink-soft: #56516b;
+  --ink-muted: #8b8699;
+  --ink-inverse: #ffffff;
+
+  --line: #ebe8f5;
+  --line-strong: #ddd7ee;
+
+  color-scheme: light;
+}
+
+.dark {
+  --canvas: #0a0912;
+  --surface: #14121f;
+  --surface-raised: #1a1729;
+  --surface-sunken: #100e1a;
+  --surface-accent: #201a3a;
+
+  --ink: #f4f2fd;
+  --ink-soft: #b6b0cb;
+  --ink-muted: #857f9c;
+  --ink-inverse: #12101c;
+
+  --line: #262239;
+  --line-strong: #332d4d;
+
+  color-scheme: dark;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-canvas text-ink-soft font-sans antialiased;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply text-ink font-semibold tracking-tight;
+    text-wrap: balance;
+  }
+
+  /* Amharic source text and answers. Set on the node, per the accessibility
+   * rules — not globally, so Latin text keeps Inter's metrics. */
+  [lang='am'] {
+    font-family: var(--font-ethiopic);
+    line-height: 1.75;
+  }
+
+  :focus-visible {
+    @apply outline-ring outline-2 outline-offset-2;
+  }
+
+  /* Respect the OS setting for users who ask for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer utilities {
+  /* The one-line gradient the hero headline and brand mark share. */
+  .text-gradient-brand {
+    background-image: linear-gradient(
+      92deg,
+      var(--color-brand-600),
+      var(--color-brand-400)
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Streaming answer caret. */
+  .caret-stream::after {
+    content: '';
+    display: inline-block;
+    width: 0.5ch;
+    height: 1.05em;
+    margin-left: 0.15em;
+    vertical-align: text-bottom;
+    background-color: var(--color-brand-500);
+    animation: caret-blink 1s steps(2, start) infinite;
+  }
+
+  .scrollbar-slim {
+    scrollbar-width: thin;
+    scrollbar-color: var(--line-strong) transparent;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.24s var(--ease-out-soft);
+  }
+
+  .animate-slide-in-up {
+    animation: slide-in-up 0.24s var(--ease-out-soft);
+  }
+
+  .animate-fade-in {
+    animation: fade-in 0.2s var(--ease-out-soft);
+  }
+}
+
+@keyframes caret-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(1.5rem);
+    opacity: 0;
+  }
+}
+
+@keyframes slide-in-up {
+  from {
+    transform: translateY(1.5rem);
+    opacity: 0;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
