@@ -8,7 +8,6 @@ import {
   toggleCitationBookmark,
   useBookmarks,
 } from '@/features/bookmarks/store'
-import { markerNumber } from './markers'
 
 /**
  * One grounding source.
@@ -18,16 +17,18 @@ import { markerNumber } from './markers'
  */
 export function CitationCard({
   citation,
+  ordinal,
   onOpen,
   className,
 }: {
   citation: AnswerCitation
+  /** Position in the cited list — the same number the inline marker shows. */
+  ordinal: number
   onOpen: (chunkId: string) => void
   className?: string
 }) {
   const bookmarks = useBookmarks()
   const saved = isBookmarked(bookmarks, citation.chunkId)
-  const ordinal = markerNumber(citation.marker)
   const effective = formatDate(citation.effectiveFrom)
   const isAmharic = citation.language === 'am'
 
@@ -38,7 +39,7 @@ export function CitationCard({
           aria-hidden="true"
           className="mt-0.5 inline-flex size-6 shrink-0 items-center justify-center rounded-md bg-surface-accent text-xs font-semibold text-brand-700 dark:text-brand-200"
         >
-          {ordinal ?? '·'}
+          {ordinal}
         </span>
 
         <div className="min-w-0 flex-1">

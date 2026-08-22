@@ -38,10 +38,11 @@ export function SourcesPanel({
     <section className="mt-4">
       <Header count={citations.length} />
       <ul className="mt-2 space-y-2">
-        {citations.map((citation) => (
+        {citations.map((citation, index) => (
           <CitationCard
             key={citation.chunkId}
             citation={citation}
+            ordinal={index + 1}
             onOpen={onOpenSource}
           />
         ))}

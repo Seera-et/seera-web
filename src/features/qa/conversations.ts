@@ -3,6 +3,7 @@ import type {
   AnswerCitation,
   AnswerKind,
   AnswerTimings,
+  Suggestion,
   HistoryTurn,
   Language,
 } from '@/lib/api'
@@ -30,6 +31,10 @@ export type StoredTurn = {
   citations: AnswerCitation[]
   /** Absent on turns stored before conversational replies existed. */
   kind?: AnswerKind
+  /** Follow-up questions offered with this answer. */
+  related?: Suggestion[]
+  /** The answer stopped at the output limit rather than finishing. */
+  truncated?: boolean
   abstained: boolean
   grounded: boolean
   askedAt: number
@@ -189,6 +194,33 @@ export function historyFor(conversation: Conversation | undefined): HistoryTurn[
     ])
     .filter((turn) => turn.text.trim() !== '')
 }
+
+/**
+ * The chunk ids a follow-up should carry: everything cited in the recent turns,
+ * newest first and deduplicated.
+ *
+ * Identifiers only. The server re-reads the text, which is what keeps a client
+ * from being able to put words into a grounded answer.
+ */
+export function carriedChunkIds(conversation: Conversation | undefined): string[] {
+  if (!conversation) return []
+
+  const ids: string[] = []
+  const seen = new Set<string>()
+
+  for (const turn of conversation.turns.slice(-HISTORY_TURNS).reverse()) {
+    for (const citation of turn.citations) {
+      if (seen.has(citation.chunkId)) continue
+      seen.add(citation.chunkId)
+      ids.push(citation.chunkId)
+      if (ids.length >= MAX_CARRIED_CHUNKS) return ids
+    }
+  }
+  return ids
+}
+
+/** Matches the server's own cap, so nothing is sent that will only be trimmed. */
+const MAX_CARRIED_CHUNKS = 12
 
 /** Stored citations keep their identifiers and a snippet; the API has the rest. */
 function trimCitation(citation: AnswerCitation): AnswerCitation {

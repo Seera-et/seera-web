@@ -169,6 +169,7 @@ export function ChatPage() {
               turn={turn}
               onOpenSource={openSource}
               onRetry={retry}
+              onAskRelated={(question) => submit({ ...query, question })}
             />
           ))
         )}

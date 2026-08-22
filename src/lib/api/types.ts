@@ -54,9 +54,13 @@ export type ResolvedCitation = CitationBase & {
 
 /** Per-stage latency, in milliseconds. */
 export type AnswerTimings = {
-  /** Follow-up rewrite. Zero for the first question in a conversation. */
+  /** Routing and the follow-up rewrite. Zero when the router was not consulted. */
   condense: number
   retrieval: number
+  /** Second retrieval pass. Zero unless multi-hop is enabled. */
+  expand: number
+  /** How many provisions came from earlier in the conversation. */
+  carriedSources: number
   rerank: number
   firstToken: number
   total: number
@@ -70,12 +74,50 @@ export type AnswerTimings = {
  * `conversation` is a reply to a message that was not a legal question — a
  * greeting, or a question about what Seera does. It carries no citations because
  * it makes no claim about the law, and must not be shown as a grounded answer.
+ *
+ * `insufficient` is the case in between: provisions were retrieved and read, and
+ * they do not settle the question. Sources are worth showing; "Grounded" is not
+ * the badge for it.
  */
-export type AnswerKind = 'legal' | 'abstention' | 'conversation'
+export type AnswerKind =
+  | 'legal'
+  | 'insufficient'
+  | 'abstention'
+  | 'conversation'
+
+/** Which engine the router chose. */
+export type AnswerIntent = 'legal' | 'discussion' | 'general'
+
+/** How much the answer was asked to explain. */
+export type AnswerDepth = 'quote' | 'explain' | 'analyse'
+
+/**
+ * The `route` event: what the router decided, before retrieval starts.
+ *
+ * `searchText` is present only when it differs from what the reader typed. A
+ * rewrite they cannot see is a rewrite they cannot correct.
+ */
+export type RouteInfo = {
+  intent: AnswerIntent | string
+  depth: AnswerDepth | null
+  searchText: string | null
+  carriedSources: number
+}
+
+/** A follow-up question offered with an answer. Built from the citations. */
+export type Suggestion = {
+  question: string
+}
 
 /** The `done` event: everything known about a finished answer. */
 export type AnswerSummary = {
   kind: AnswerKind
+  /** Generation hit the output limit; the answer stops mid-sentence. */
+  truncated: boolean
+  intent: AnswerIntent | string | null
+  depth: AnswerDepth | null
+  /** Follow-up questions built from the citations this answer used. */
+  related: Suggestion[]
   citations: AnswerCitation[]
   /** True when retrieval found nothing usable and the system declined to guess. */
   abstained: boolean
@@ -113,6 +155,13 @@ export type AskInput = {
    * retrieval and treats these turns as context, never as grounding.
    */
   history?: HistoryTurn[]
+
+  /**
+   * Chunk ids of the citations the client is displaying, so a follow-up can be
+   * about provisions already on screen. Identifiers only — the server reads the
+   * text from the database.
+   */
+  contextChunks?: string[]
 }
 
 /* ---------- Catalogue ---------- */

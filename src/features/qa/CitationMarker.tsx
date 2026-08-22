@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { AnswerCitation } from '@/lib/api'
 import { citationLabel, truncate } from '@/lib/utils/format'
 import { cn } from '@/lib/utils/cn'
-import { markerNumber } from './markers'
 
 /**
  * An inline citation marker.
@@ -14,13 +13,21 @@ import { markerNumber } from './markers'
  */
 export function CitationMarker({
   citation,
+  ordinal,
   onOpen,
 }: {
   citation: AnswerCitation
+  /**
+   * The number the reader sees, counted over the sources actually cited.
+   *
+   * Not the model's marker number. An answer that used S1, S3 and S5 of six
+   * retrieved provisions would otherwise show a three-item list numbered 1, 3,
+   * 5, which reads as though two sources had gone missing.
+   */
+  ordinal: number
   onOpen: (chunkId: string) => void
 }) {
   const [previewing, setPreviewing] = useState(false)
-  const ordinal = markerNumber(citation.marker) ?? 0
   const label = `Source ${ordinal}: ${citationLabel(citation)}`
 
   return (

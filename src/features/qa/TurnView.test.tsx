@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { renderWithProviders } from '@/test/utils'
 import type { AnswerKind, AnswerSummary } from '@/lib/api'
 import { TurnView } from './TurnView'
@@ -17,6 +18,8 @@ import type { Turn } from './useQaConversation'
 const TIMINGS = {
   condense: 0,
   retrieval: 100,
+  expand: 0,
+  carriedSources: 0,
   rerank: 10,
   firstToken: 500,
   total: 1200,
@@ -27,6 +30,10 @@ const TIMINGS = {
 function summary(overrides: Partial<AnswerSummary> = {}): AnswerSummary {
   return {
     kind: 'legal' as AnswerKind,
+    truncated: false,
+    intent: 'legal',
+    depth: 'explain',
+    related: [],
     citations: [],
     abstained: false,
     grounded: true,
@@ -45,6 +52,7 @@ function turn(overrides: Partial<Turn> = {}): Turn {
     answer: 'Hello. I answer questions about Ethiopian law.',
     citations: [],
     summary: summary(),
+    route: null,
     phase: 'done',
     error: null,
     askedAt: Date.now(),
@@ -54,7 +62,12 @@ function turn(overrides: Partial<Turn> = {}): Turn {
 
 function render(t: Turn) {
   return renderWithProviders(
-    <TurnView turn={t} onOpenSource={vi.fn()} onRetry={vi.fn()} />,
+    <TurnView
+      turn={t}
+      onOpenSource={vi.fn()}
+      onRetry={vi.fn()}
+      onAskRelated={vi.fn()}
+    />,
   )
 }
 
@@ -105,5 +118,147 @@ describe('TurnView', () => {
     expect(screen.getByText('No grounded answer')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByText('Partly uncited')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * Transparency about what the system did with the question.
+ *
+ * A follow-up is rewritten before retrieval and may carry provisions from
+ * earlier in the thread. Both change which law the answer came from, so both are
+ * shown.
+ */
+describe('TurnView routing note', () => {
+  const route = {
+    intent: 'discussion',
+    depth: 'explain' as const,
+    searchText: 'What does Article 265 of the Commercial Code require?',
+    carriedSources: 2,
+  }
+
+  it('shows the question that was actually searched for', () => {
+    render(turn({ question: 'explain the second one', route }))
+
+    expect(screen.getByText(/Searched for:/)).toBeInTheDocument()
+    expect(
+      screen.getByText('What does Article 265 of the Commercial Code require?'),
+    ).toBeInTheDocument()
+  })
+
+  it('says how many sources were carried from the conversation', () => {
+    render(turn({ route }))
+    expect(screen.getByText(/Continuing with 2 sources/)).toBeInTheDocument()
+  })
+
+  it('stays quiet when the question was searched for as typed', () => {
+    render(
+      turn({
+        route: { intent: 'legal', depth: null, searchText: null, carriedSources: 0 },
+      }),
+    )
+    expect(screen.queryByText(/Searched for:/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/Continuing with/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TurnView follow-up suggestions', () => {
+  it('offers the follow-ups the answer came with', async () => {
+    const onAskRelated = vi.fn()
+    const t = turn({
+      summary: summary({
+        related: [{ question: 'Explain Article 265 in plain language' }],
+      }),
+    })
+
+    renderWithProviders(
+      <TurnView
+        turn={t}
+        onOpenSource={vi.fn()}
+        onRetry={vi.fn()}
+        onAskRelated={onAskRelated}
+      />,
+    )
+
+    const chip = screen.getByRole('button', {
+      name: 'Explain Article 265 in plain language',
+    })
+    await userEvent.click(chip)
+    expect(onAskRelated).toHaveBeenCalledWith('Explain Article 265 in plain language')
+  })
+
+  it('offers none on a conversational reply', () => {
+    render(
+      turn({
+        summary: summary({
+          kind: 'conversation',
+          related: [{ question: 'should not be offered' }],
+        }),
+      }),
+    )
+    expect(screen.queryByText('Ask next')).not.toBeInTheDocument()
+  })
+})
+
+/**
+ * The three ways an answer can be less than it looks, each with its own
+ * presentation. The sample that prompted these was badged "Grounded" while
+ * saying the sources did not contain the answer, and stopped mid-sentence.
+ */
+describe('TurnView honesty about what an answer is', () => {
+  it('does not badge an unanswered question as grounded', () => {
+    render(
+      turn({
+        answer: 'The sources do not contain the requirements for a business licence.',
+        summary: summary({ kind: 'insufficient', grounded: true }),
+      }),
+    )
+
+    expect(screen.queryByText('Grounded')).not.toBeInTheDocument()
+    expect(screen.getByText('Not answered by these sources')).toBeInTheDocument()
+    expect(screen.getByText(/did not settle this/)).toBeInTheDocument()
+  })
+
+  it('still shows the provisions that were read', () => {
+    render(
+      turn({
+        citations: [
+          {
+            marker: 'S1',
+            chunkId: 'chunk-1',
+            articleId: 'a1',
+            versionId: 'v1',
+            documentId: 'd1',
+            documentTitle: 'Commercial Code',
+            issuingAuthority: null,
+            articleNo: '22',
+            articleTitle: null,
+            sectionPath: [],
+            language: 'en',
+            effectiveFrom: null,
+            text: 'Particular persons may be restricted from acting as traders.',
+            structureConfidence: 'high',
+          },
+        ],
+        summary: summary({ kind: 'insufficient' }),
+      }),
+    )
+
+    expect(screen.getByText(/Sources \(1\)/)).toBeInTheDocument()
+  })
+
+  it('says when an answer was cut off rather than showing it as finished', () => {
+    render(
+      turn({
+        answer: 'Registration is required when applying for principal registration',
+        summary: summary({ truncated: true }),
+      }),
+    )
+
+    expect(screen.getByText('This answer was cut off')).toBeInTheDocument()
+  })
+
+  it('stays quiet about truncation on a complete answer', () => {
+    render(turn({ summary: summary({ truncated: false }) }))
+    expect(screen.queryByText('This answer was cut off')).not.toBeInTheDocument()
   })
 })

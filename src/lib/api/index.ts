@@ -13,6 +13,8 @@ export { getHealth } from './health'
 export { streamAnswer, type QaStreamHandlers } from './qa'
 export type {
   AnswerCitation,
+  AnswerDepth,
+  AnswerIntent,
   AnswerKind,
   AnswerSummary,
   AnswerTimings,
@@ -31,6 +33,8 @@ export type {
   HistoryTurn,
   Language,
   ResolvedCitation,
+  RouteInfo,
   StructureConfidence,
+  Suggestion,
   VersionStatus,
 } from './types'

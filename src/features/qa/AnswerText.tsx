@@ -23,6 +23,11 @@ export function AnswerText({
   onOpenSource,
 }: AnswerTextProps) {
   const byMarker = new Map(citations.map((citation) => [citation.marker, citation]))
+  // Display numbers are positions in the cited list, so the answer's markers and
+  // the source cards below it count the same way.
+  const ordinals = new Map(
+    citations.map((citation, index) => [citation.marker, index + 1]),
+  )
   const blocks = toBlocks(text)
   const lastIndex = blocks.length - 1
   const language = langAttr(text)
@@ -43,6 +48,7 @@ export function AnswerText({
               <Inline
                 text={block.text}
                 byMarker={byMarker}
+                ordinals={ordinals}
                 onOpenSource={onOpenSource}
               />
             </Tag>
@@ -62,6 +68,7 @@ export function AnswerText({
                     <Inline
                       text={item}
                       byMarker={byMarker}
+                      ordinals={ordinals}
                       onOpenSource={onOpenSource}
                     />
                   </span>
@@ -79,7 +86,12 @@ export function AnswerText({
               streaming && index === lastIndex && 'caret-stream',
             )}
           >
-            <Inline text={block.text} byMarker={byMarker} onOpenSource={onOpenSource} />
+            <Inline
+              text={block.text}
+              byMarker={byMarker}
+              ordinals={ordinals}
+              onOpenSource={onOpenSource}
+            />
           </p>
         )
       })}
@@ -91,10 +103,12 @@ export function AnswerText({
 function Inline({
   text,
   byMarker,
+  ordinals,
   onOpenSource,
 }: {
   text: string
   byMarker: Map<string, AnswerCitation>
+  ordinals: Map<string, number>
   onOpenSource: (chunkId: string) => void
 }) {
   return (
@@ -109,6 +123,7 @@ function Inline({
               <Inline
                 text={segment.text}
                 byMarker={byMarker}
+                ordinals={ordinals}
                 onOpenSource={onOpenSource}
               />
             </strong>
@@ -129,6 +144,7 @@ function Inline({
               <CitationMarker
                 key={citation.chunkId}
                 citation={citation}
+                ordinal={ordinals.get(citation.marker) ?? 0}
                 onOpen={onOpenSource}
               />
             ))}

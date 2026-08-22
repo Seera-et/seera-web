@@ -5,9 +5,11 @@ import {
   streamAnswer,
   type AnswerCitation,
   type AnswerSummary,
+  type RouteInfo,
 } from '@/lib/api'
 import {
   appendTurn,
+  carriedChunkIds,
   historyFor,
   useConversation,
   type Conversation,
@@ -38,6 +40,8 @@ export type Turn = {
   /** From the `sources` event, then replaced by the `done` event's list. */
   citations: AnswerCitation[]
   summary: AnswerSummary | null
+  /** What the router decided, available before the first token. */
+  route: RouteInfo | null
   phase: TurnPhase
   error: ApiError | null
   askedAt: number
@@ -128,6 +132,7 @@ export function useQaConversation(conversationId: string): ConversationState {
         answer: '',
         citations: [],
         summary: null,
+        route: null,
         phase: 'retrieving',
         error: null,
         askedAt: Date.now(),
@@ -152,8 +157,12 @@ export function useQaConversation(conversationId: string): ConversationState {
             language: query.language,
             asOf: query.asOf,
             history: historyFor(history),
+            // Chunk ids only. The server re-reads the text, so a follow-up can
+            // be about a provision on screen without the client supplying it.
+            contextChunks: carriedChunkIds(history),
           },
           {
+            onRoute: (route) => patch(turn.id, (current) => ({ ...current, route })),
             onSources: (citations) =>
               patch(turn.id, (current) => ({ ...current, citations })),
             onToken: (text) => {
@@ -180,6 +189,8 @@ export function useQaConversation(conversationId: string): ConversationState {
           // implied grounding this product must not show.
           citations: summary.citations,
           kind: summary.kind,
+          truncated: summary.truncated,
+          related: summary.related,
           abstained: summary.abstained,
           grounded: summary.grounded,
           askedAt: turn.askedAt,
@@ -276,8 +287,13 @@ function fromStored(turn: StoredTurn): Turn {
     asOf: turn.asOf,
     answer: turn.answer,
     citations: turn.citations,
+    route: null,
     summary: {
       kind: turn.kind ?? 'legal',
+      truncated: turn.truncated ?? false,
+      intent: null,
+      depth: null,
+      related: turn.related ?? [],
       citations: turn.citations,
       abstained: turn.abstained,
       grounded: turn.grounded,

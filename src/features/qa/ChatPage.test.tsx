@@ -13,6 +13,8 @@ import { appendTurn, type StoredTurn } from './conversations'
 const EMPTY_TIMINGS = {
   condense: 0,
   retrieval: 0,
+  expand: 0,
+  carriedSources: 0,
   rerank: 0,
   firstToken: 0,
   total: 0,

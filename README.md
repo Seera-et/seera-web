@@ -131,17 +131,42 @@ Components never call `fetch`. Everything goes through `lib/api`, which
 
 Threads live in this browser (`features/qa/conversations.ts`), not on the server.
 The backend stores no question and no answer text, and there is no auth to own a
-thread, so the client keeps the transcript and sends the turns a follow-up needs:
+thread, so the client keeps the transcript and sends what a follow-up needs:
 
 ```
 POST /api/v1/qa/query
-{ "question": "What about for a PLC?", "history": [ {role, text}, … ] }
+{
+  "question": "explain the second one",
+  "history": [ {role, text}, … ],
+  "context_chunks": ["<chunk_id>", …]    ← citations currently on screen
+}
 ```
 
-The server rewrites that into a standalone question before retrieval and treats
-the earlier turns as context, never as grounding. Only finished turns are stored;
-a streaming, cancelled or failed turn stays in memory, so the record contains
-answers that actually completed and nothing else.
+`context_chunks` is identifiers only. The server re-reads that text from the
+database and puts it at the front of the answer's context, so a follow-up is
+about the provision already on screen rather than whatever retrieval finds for a
+pronoun — and nothing the client holds can become an answer's evidence.
+
+Only finished turns are stored; a streaming, cancelled or failed turn stays in
+memory, so the record contains answers that actually completed and nothing else.
+
+### What the answer stream carries
+
+`route` arrives first, before retrieval, and drives two pieces of the UI: the
+question that was actually searched for, shown when it differs from what was
+typed, and how many provisions were carried from earlier in the thread. A rewrite
+a reader cannot see is a rewrite they cannot correct.
+
+`done` carries `kind` (`legal` / `insufficient` / `abstention` /
+`conversation`), which decides whether the grounding apparatus is shown at all;
+`truncated`, when generation hit its length limit and the answer stops
+mid-sentence; and `related` — follow-up questions built by the server from the
+citations the answer used, rendered as chips.
+
+Source numbers are positions in the cited list, in both the inline markers and
+the cards. They are not the model's marker numbers: an answer that used S1, S3
+and S5 of six retrieved provisions would otherwise show a three-item list
+numbered 1, 3, 5.
 
 ### Citations
 
@@ -169,7 +194,7 @@ No screen renders invented data. Where something cannot be known, it says so.
 | Screen | State |
 |---|---|
 | Home | Live. Counters come from `GET /api/v1/corpus/stats`, counted over published versions — zero reads as zero. |
-| Chat | Live. Streaming answers, citations, source resolution, abstention, cancel, as-of dates, multi-turn follow-ups, and written replies to messages that are not legal questions. |
+| Chat | Live. Model-routed: legal questions retrieve and cite, follow-ups carry the sources already on screen, and anything else gets a general reply that cannot state Ethiopian law. Plus streaming, cancel, as-of dates and abstention. |
 | Legal Explorer | Live. `GET /api/v1/documents` with URL-driven filters and paging. |
 | Document view | Live. Versions, keyset-paginated articles, and the cited provision highlighted when the URL carries `?chunk=`. |
 | Bookmarks | Live, stored in this browser. |

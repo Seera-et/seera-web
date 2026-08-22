@@ -194,3 +194,45 @@ describe('AnswerText with a real answer', () => {
     expect(screen.getAllByRole('listitem')).toHaveLength(2)
   })
 })
+
+/**
+ * Numbering. The answer's inline markers and the source cards below it must
+ * count the same way, and that counting is over the sources actually cited —
+ * an answer that used S1, S3 and S5 of six retrieved provisions showed a
+ * three-item list numbered 1, 3, 5, which reads as two missing sources.
+ */
+describe('AnswerText source numbering', () => {
+  it('numbers markers by position in the cited list, not by the model marker', () => {
+    renderWithProviders(
+      <AnswerText
+        text="First [S1]. Second [S3]. Third [S5]."
+        citations={[
+          citation({ marker: 'S1', chunkId: 'c1', articleNo: '22' }),
+          citation({ marker: 'S3', chunkId: 'c3', articleNo: '25' }),
+          citation({ marker: 'S5', chunkId: 'c5', articleNo: '87' }),
+        ]}
+        onOpenSource={vi.fn()}
+      />,
+    )
+
+    const markers = screen.getAllByRole('button')
+    expect(markers.map((m) => m.textContent)).toEqual(['1', '2', '3'])
+  })
+
+  it('labels each marker with its display number and source', () => {
+    renderWithProviders(
+      <AnswerText
+        text="Second source only [S3]."
+        citations={[
+          citation({ marker: 'S1', chunkId: 'c1' }),
+          citation({ marker: 'S3', chunkId: 'c3', articleNo: '25' }),
+        ]}
+        onOpenSource={vi.fn()}
+      />,
+    )
+
+    expect(
+      screen.getByRole('button', { name: 'Source 2: Commercial Code, Article 25' }),
+    ).toBeInTheDocument()
+  })
+})

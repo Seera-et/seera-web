@@ -4,7 +4,9 @@ import {
   Bookmark,
   Check,
   Copy,
+  Layers,
   RotateCcw,
+  Search,
   SearchX,
   TriangleAlert,
 } from 'lucide-react'
@@ -15,9 +17,11 @@ import {
   Button,
   Callout,
   Card,
+  Chip,
   ErrorState,
   SkeletonText,
 } from '@/components/ui'
+import type { Suggestion } from '@/lib/api'
 import { PLACEHOLDER_USER } from '@/app/session'
 import { saveAnswerBookmark } from '@/features/bookmarks/store'
 import { formatDate, langAttr } from '@/lib/utils/format'
@@ -31,10 +35,13 @@ export function TurnView({
   turn,
   onOpenSource,
   onRetry,
+  onAskRelated,
 }: {
   turn: Turn
   onOpenSource: (chunkId: string) => void
   onRetry: () => void
+  /** Asks one of the follow-ups offered under the answer. */
+  onAskRelated: (question: string) => void
 }) {
   const retrieving = turn.phase === 'retrieving'
   const streaming = turn.phase === 'streaming'
@@ -45,6 +52,11 @@ export function TurnView({
   // apparatus applies to it: no badge claiming it is grounded, no warning that
   // it is not, no sources, no timings.
   const conversational = kind === 'conversation'
+  // The model read the provisions and reported that they do not settle the
+  // question. Not an answer, and not an abstention either — the sources are real
+  // and worth reading.
+  const insufficient = kind === 'insufficient'
+  const truncated = turn.summary?.truncated ?? false
   const ungrounded =
     kind === 'legal' && turn.summary ? !turn.summary.grounded : false
 
@@ -65,6 +77,10 @@ export function TurnView({
             <Badge tone="warning" icon={<SearchX />}>
               No grounded answer
             </Badge>
+          ) : insufficient ? (
+            <Badge tone="warning" icon={<SearchX />}>
+              Not answered by these sources
+            </Badge>
           ) : ungrounded ? (
             <Badge tone="warning" icon={<TriangleAlert />}>
               Partly uncited
@@ -77,6 +93,8 @@ export function TurnView({
             <Badge tone="neutral">Stopped</Badge>
           ) : null}
         </header>
+
+        <RouteNote turn={turn} />
 
         <div className="mt-3">
           {turn.phase === 'error' && turn.error ? (
@@ -100,6 +118,22 @@ export function TurnView({
           </Callout>
         ) : null}
 
+        {insufficient ? (
+          <Callout tone="info" className="mt-4" title="The corpus did not settle this">
+            The provisions below were retrieved and read, and they do not answer
+            the question. That is a gap in what has been indexed, not a statement
+            that the law is silent.
+          </Callout>
+        ) : null}
+
+        {truncated ? (
+          <Callout tone="warning" className="mt-4" title="This answer was cut off">
+            Generation reached its length limit, so the answer stops mid-sentence.
+            Ask again, or ask a narrower question — an unfinished legal sentence is
+            often missing the condition that changes it.
+          </Callout>
+        ) : null}
+
         {turn.phase === 'cancelled' ? (
           <Callout tone="info" className="mt-4">
             You stopped this answer, so it is incomplete.
@@ -117,6 +151,13 @@ export function TurnView({
         {/* Nothing to copy, save or re-ask about a greeting. */}
         {!conversational && (turn.phase === 'done' || turn.phase === 'cancelled') ? (
           <AnswerToolbar turn={turn} onRetry={onRetry} />
+        ) : null}
+
+        {!conversational && turn.summary?.related?.length ? (
+          <RelatedQuestions
+            suggestions={turn.summary.related}
+            onAsk={onAskRelated}
+          />
         ) : null}
 
         {turn.summary && !conversational ? <AnswerMeta summary={turn.summary} /> : null}
@@ -199,5 +240,66 @@ function AnswerToolbar({ turn, onRetry }: { turn: Turn; onRetry: () => void }) {
         Ask again
       </Button>
     </div>
+  )
+}
+
+/**
+ * What the system actually searched for, when that is not what the reader typed.
+ *
+ * A follow-up is rewritten into a standalone question before retrieval. Hiding
+ * that would leave a reader unable to explain why an answer went somewhere
+ * unexpected, or to correct it.
+ */
+function RouteNote({ turn }: { turn: Turn }) {
+  const route = turn.route
+  if (!route) return null
+
+  const rewritten = route.searchText
+  const carried = route.carriedSources
+
+  if (!rewritten && carried === 0) return null
+
+  return (
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+      {rewritten ? (
+        <span className="flex items-center gap-1.5">
+          <Search aria-hidden="true" className="size-3.5 shrink-0" />
+          Searched for: <span className="text-ink-soft">{rewritten}</span>
+        </span>
+      ) : null}
+      {carried > 0 ? (
+        <span className="flex items-center gap-1.5">
+          <Layers aria-hidden="true" className="size-3.5 shrink-0" />
+          Continuing with {carried} {carried === 1 ? 'source' : 'sources'} from this
+          conversation
+        </span>
+      ) : null}
+    </div>
+  )
+}
+
+/** Follow-ups built from the citations this answer used. */
+function RelatedQuestions({
+  suggestions,
+  onAsk,
+}: {
+  suggestions: Suggestion[]
+  onAsk: (question: string) => void
+}) {
+  return (
+    <section className="mt-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
+        Ask next
+      </h3>
+      <ul className="mt-2 flex flex-wrap gap-2">
+        {suggestions.map((suggestion) => (
+          <li key={suggestion.question}>
+            <Chip onClick={() => onAsk(suggestion.question)}>
+              {suggestion.question}
+            </Chip>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

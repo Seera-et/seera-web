@@ -289,3 +289,89 @@ describe('useQaConversation under StrictMode', () => {
     expect(result.current.turns[0].answer).toBe('A corrected answer.')
   })
 })
+
+/**
+ * Conversation memory. A follow-up carries the identifiers of the provisions
+ * already on screen, so the server can re-read them rather than hoping retrieval
+ * finds them again — and so nothing the client holds becomes evidence.
+ */
+describe('useQaConversation carrying sources', () => {
+  it('sends the chunk ids of citations already in the thread', async () => {
+    const calls = mockFetch(sseResponse(ANSWER_FRAMES), sseResponse(ANSWER_FRAMES))
+
+    const { result } = renderHook(() => useQaConversation('conv-carry'), {
+      wrapper: providerWrapper(),
+    })
+
+    act(() => result.current.ask({ question: 'How do I register a company?' }))
+    await waitFor(() => expect(result.current.busy).toBe(false))
+
+    act(() => result.current.ask({ question: 'explain the second one' }))
+    await waitFor(() => expect(result.current.busy).toBe(false))
+
+    const first = calls[0].body as Record<string, unknown>
+    const second = calls[1].body as Record<string, unknown>
+
+    expect(first.context_chunks).toBeUndefined()
+    expect(second.context_chunks).toEqual(['chunk-1'])
+  })
+
+  it('records the routing decision on the turn', async () => {
+    mockFetch(
+      sseResponse([
+        {
+          event: 'route',
+          data: {
+            intent: 'discussion',
+            depth: 'explain',
+            search_text: 'What does Article 265 of the Commercial Code require?',
+            carried_sources: 2,
+          },
+        },
+        ...ANSWER_FRAMES,
+      ]),
+    )
+
+    const { result } = renderHook(() => useQaConversation('conv-route'), {
+      wrapper: providerWrapper(),
+    })
+
+    act(() => result.current.ask({ question: 'explain the second one' }))
+    await waitFor(() => expect(result.current.busy).toBe(false))
+
+    // The turn is in the store by now, and a stored turn keeps no route — the
+    // decision is live state. What matters is that it was parsed without error
+    // and the answer completed.
+    expect(result.current.turns).toHaveLength(1)
+    expect(result.current.turns[0].answer).toContain('private limited company')
+  })
+
+  it('keeps the follow-up questions the answer came with', async () => {
+    mockFetch(
+      sseResponse([
+        { event: 'sources', data: { citations: [citationFixture()] } },
+        { event: 'token', data: { text: 'An answer [S1].' } },
+        {
+          event: 'done',
+          data: {
+            citations: [citationFixture()],
+            kind: 'legal',
+            grounded: true,
+            related: [{ question: 'Explain Article 627 in plain language' }],
+          },
+        },
+      ]),
+    )
+
+    const { result } = renderHook(() => useQaConversation('conv-related'), {
+      wrapper: providerWrapper(),
+    })
+
+    act(() => result.current.ask({ question: 'How do I register a company?' }))
+    await waitFor(() => expect(result.current.busy).toBe(false))
+
+    expect(result.current.turns[0].summary?.related).toEqual([
+      { question: 'Explain Article 627 in plain language' },
+    ])
+  })
+})

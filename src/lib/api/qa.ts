@@ -1,8 +1,8 @@
 /**
  * The answer path: POST /api/v1/qa/query, streamed.
  *
- * The event order the API guarantees is `sources` → `token`* → `done`, with
- * `error` in place of `done` on failure.
+ * The event order the API guarantees is `route` → `sources` → `token`* →
+ * `done`, with `error` in place of `done` on failure.
  */
 
 import { endpoints } from './config'
@@ -12,13 +12,22 @@ import {
   doneEventSchema,
   errorEventSchema,
   parseOrThrow,
+  routeEventSchema,
   sourcesEventSchema,
   tokenEventSchema,
 } from './schemas'
 import { readSseFrames } from './sse'
-import type { AnswerCitation, AnswerSummary, AskInput } from './types'
+import type {
+  AnswerCitation,
+  AnswerSummary,
+  AskInput,
+  RouteInfo,
+} from './types'
 
 export type QaStreamHandlers = {
+  /** The router decided. Fires first, before anything else, and says which
+   * engine is answering and what retrieval was given. */
+  onRoute?: (route: RouteInfo) => void
   /** Retrieval finished. Fires once, before the first token — render the source
    * cards here; that is most of the perceived-latency win. */
   onSources?: (citations: AnswerCitation[]) => void
@@ -45,6 +54,7 @@ export async function streamAnswer(
   if (input.language) body.language = input.language
   if (input.asOf) body.as_of = input.asOf
   if (input.history?.length) body.history = input.history
+  if (input.contextChunks?.length) body.context_chunks = input.contextChunks
 
   const stream = await requestStream(endpoints.qaQuery, body, signal)
 
@@ -53,6 +63,11 @@ export async function streamAnswer(
       const payload = decodeFrameData(frame.data)
 
       switch (frame.event) {
+        case 'route': {
+          const parsed = parseOrThrow(routeEventSchema, payload, 'route event')
+          handlers.onRoute?.(parsed)
+          break
+        }
         case 'sources': {
           const parsed = parseOrThrow(sourcesEventSchema, payload, 'sources event')
           handlers.onSources?.(parsed.citations ?? [])

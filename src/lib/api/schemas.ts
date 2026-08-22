@@ -19,6 +19,7 @@ import type {
   DocumentVersion,
   HealthStatus,
   ResolvedCitation,
+  RouteInfo,
   StructureConfidence,
 } from './types'
 
@@ -117,6 +118,8 @@ const timingsSchema = z
   .object({
     condense: z.number(),
     retrieval: z.number(),
+    expand: z.number(),
+    carried_sources: z.number(),
     rerank: z.number(),
     first_token: z.number(),
     total: z.number(),
@@ -128,6 +131,8 @@ const timingsSchema = z
     (raw): AnswerTimings => ({
       condense: raw.condense ?? 0,
       retrieval: raw.retrieval ?? 0,
+      expand: raw.expand ?? 0,
+      carriedSources: raw.carried_sources ?? 0,
       rerank: raw.rerank ?? 0,
       firstToken: raw.first_token ?? 0,
       total: raw.total ?? 0,
@@ -150,7 +155,13 @@ export const doneEventSchema = z
   .object({
     // Absent on a backend older than the conversational path; a legal answer is
     // the only thing it could have been.
-    kind: z.enum(['legal', 'abstention', 'conversation']).nullish(),
+    kind: z.enum(['legal', 'insufficient', 'abstention', 'conversation']).nullish(),
+    truncated: z.boolean().nullish(),
+    intent: nullableString,
+    depth: z.enum(['quote', 'explain', 'analyse']).nullish(),
+    related: z
+      .array(z.object({ question: z.string() }))
+      .nullish(),
     citations: z.array(answerCitationSchema).nullish(),
     abstained: z.boolean().nullish(),
     grounded: z.boolean().nullish(),
@@ -162,12 +173,18 @@ export const doneEventSchema = z
   .transform(
     (raw): AnswerSummary => ({
       kind: raw.kind ?? 'legal',
+      truncated: raw.truncated ?? false,
+      intent: raw.intent,
+      depth: raw.depth ?? null,
+      related: raw.related ?? [],
       citations: raw.citations ?? [],
       abstained: raw.abstained ?? false,
       grounded: raw.grounded ?? false,
       timings: raw.timings_ms ?? {
         condense: 0,
         retrieval: 0,
+        expand: 0,
+        carriedSources: 0,
         rerank: 0,
         firstToken: 0,
         total: 0,
@@ -177,6 +194,23 @@ export const doneEventSchema = z
       model: raw.model ?? '',
       reranker: raw.reranker ?? '',
       requestId: raw.request_id,
+    }),
+  )
+
+/** The `route` event, emitted before retrieval. */
+export const routeEventSchema = z
+  .object({
+    intent: z.string(),
+    depth: z.enum(['quote', 'explain', 'analyse']).nullish(),
+    search_text: nullableString,
+    carried_sources: z.number().nullish(),
+  })
+  .transform(
+    (raw): RouteInfo => ({
+      intent: raw.intent,
+      depth: raw.depth ?? null,
+      searchText: raw.search_text,
+      carriedSources: raw.carried_sources ?? 0,
     }),
   )
 
