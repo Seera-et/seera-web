@@ -1,6 +1,7 @@
 import { createLocalStore, useStore } from '@/lib/store/createLocalStore'
 import type {
   AnswerCitation,
+  AnswerConfidence,
   AnswerKind,
   AnswerTimings,
   Suggestion,
@@ -37,6 +38,10 @@ export type StoredTurn = {
   truncated?: boolean
   abstained: boolean
   grounded: boolean
+  /** Absent on turns stored before this existed, and always null for
+   * insufficient/abstention/conversation answers — only computed for `kind:
+   * 'legal'`. */
+  confidence?: AnswerConfidence | null
   askedAt: number
 
   /** How the answer was produced. Kept so a reloaded turn can still show what

@@ -8,6 +8,7 @@ import { z } from 'zod'
 import { ApiError } from './errors'
 import type {
   AnswerCitation,
+  AnswerConfidence,
   AnswerSummary,
   AnswerTimings,
   ArticlePage,
@@ -38,6 +39,26 @@ const structureConfidence = z
   .enum(['high', 'low'])
   .nullish()
   .transform((value) => (value ?? null) as StructureConfidence | null)
+
+/** The `done` event's top-level `confidence` — a different concept from a
+ * citation's `structure_confidence` above, despite the similar name. */
+const confidenceSchema = z
+  .object({
+    level: z.enum(['high', 'medium', 'low']),
+    exact_match: z.boolean().nullish(),
+    source_count: z.number().int().nullish(),
+  })
+  .nullish()
+  .transform(
+    (raw): AnswerConfidence | null =>
+      raw
+        ? {
+            level: raw.level,
+            exactMatch: raw.exact_match ?? false,
+            sourceCount: raw.source_count ?? 0,
+          }
+        : null,
+  )
 
 /** Shared by rag.Citation and citations.Citation — the JSON names match by design. */
 const citationBaseShape = {
@@ -169,6 +190,7 @@ export const doneEventSchema = z
     model: nullableString,
     reranker: nullableString,
     request_id: nullableString,
+    confidence: confidenceSchema,
   })
   .transform(
     (raw): AnswerSummary => ({
@@ -194,6 +216,7 @@ export const doneEventSchema = z
       model: raw.model ?? '',
       reranker: raw.reranker ?? '',
       requestId: raw.request_id,
+      confidence: raw.confidence,
     }),
   )
 

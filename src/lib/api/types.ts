@@ -109,6 +109,22 @@ export type Suggestion = {
   question: string
 }
 
+/**
+ * How much evidence backs an answer, read from retrieval/reranking signals
+ * already produced — never an extra model call. Only meaningful for `kind:
+ * 'legal'` answers; absent (`null`) on insufficient/abstention/conversation
+ * results, which never reach the point in the answer path where it's computed.
+ */
+export type AnswerConfidenceLevel = 'high' | 'medium' | 'low'
+
+export type AnswerConfidence = {
+  level: AnswerConfidenceLevel
+  /** At least one source came from a deterministic article-number lookup,
+   * not a similarity judgement. */
+  exactMatch: boolean
+  sourceCount: number
+}
+
 /** The `done` event: everything known about a finished answer. */
 export type AnswerSummary = {
   kind: AnswerKind
@@ -127,6 +143,7 @@ export type AnswerSummary = {
   model: string
   reranker: string
   requestId: string | null
+  confidence: AnswerConfidence | null
 }
 
 export type HealthStatus = {
