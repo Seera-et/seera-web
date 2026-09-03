@@ -41,6 +41,7 @@ function summary(overrides: Partial<AnswerSummary> = {}): AnswerSummary {
     model: 'gemini-3.5-flash',
     reranker: 'passthrough',
     requestId: 'req-1',
+    confidence: null,
     ...overrides,
   }
 }
@@ -118,6 +119,69 @@ describe('TurnView', () => {
     expect(screen.getByText('No grounded answer')).toBeInTheDocument()
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
     expect(screen.queryByText('Partly uncited')).not.toBeInTheDocument()
+  })
+})
+
+describe('TurnView confidence note', () => {
+  it('says nothing when confidence is high', () => {
+    render(
+      turn({
+        summary: summary({
+          confidence: { level: 'high', exactMatch: true, sourceCount: 3 },
+        }),
+      }),
+    )
+
+    expect(screen.queryByText('Limited evidence')).not.toBeInTheDocument()
+  })
+
+  it('says nothing when the backend never computed confidence at all', () => {
+    render(turn({ summary: summary({ confidence: null }) }))
+
+    expect(screen.queryByText('Limited evidence')).not.toBeInTheDocument()
+  })
+
+  it('flags medium confidence without claiming the answer is wrong', () => {
+    render(
+      turn({
+        summary: summary({
+          confidence: { level: 'medium', exactMatch: false, sourceCount: 2 },
+        }),
+      }),
+    )
+
+    expect(screen.getByText('Limited evidence')).toBeInTheDocument()
+    expect(screen.getByText(/agree only loosely/)).toBeInTheDocument()
+  })
+
+  it('flags low confidence with a narrower-question suggestion', () => {
+    render(
+      turn({
+        summary: summary({
+          confidence: { level: 'low', exactMatch: false, sourceCount: 1 },
+        }),
+      }),
+    )
+
+    expect(screen.getByText('Limited evidence')).toBeInTheDocument()
+    expect(screen.getByText(/starting point, not the final word/)).toBeInTheDocument()
+  })
+
+  // Confidence is only computed for a completed legal answer — showing it
+  // next to insufficient/abstention's own dedicated explanation, or on a
+  // conversational reply that made no claim at all, would just be noise.
+  it('is suppressed on non-legal outcomes even if confidence is somehow present', () => {
+    render(
+      turn({
+        summary: summary({
+          kind: 'insufficient',
+          grounded: false,
+          confidence: { level: 'low', exactMatch: false, sourceCount: 1 },
+        }),
+      }),
+    )
+
+    expect(screen.queryByText('Limited evidence')).not.toBeInTheDocument()
   })
 })
 
@@ -215,7 +279,30 @@ describe('TurnView honesty about what an answer is', () => {
 
     expect(screen.queryByText('Grounded')).not.toBeInTheDocument()
     expect(screen.getByText('Not answered by these sources')).toBeInTheDocument()
-    expect(screen.getByText(/did not settle this/)).toBeInTheDocument()
+    // Nothing was cited, so there is no sources panel to point at, and no
+    // grounds for blaming the index — see the test below.
+    expect(screen.getByText(/none of it bore on this question/)).toBeInTheDocument()
+    expect(screen.queryByText(/provisions below/)).not.toBeInTheDocument()
+  })
+
+  /**
+   * A live sample, 2026-09-03: "what is ROI in Ethiopian agriculture?" was
+   * routed to the corpus, read seven provisions, cited none — and was shown
+   * under "The provisions below were retrieved and read", with no provisions
+   * below, promising that the answer would arrive once the corpus grew. ROI is
+   * not Ethiopian law and was never going to be indexed.
+   */
+  it('does not blame the index when an unanswered question cited nothing', () => {
+    render(
+      turn({
+        citations: [],
+        answer: 'The provided sources do not contain any information about ROI.',
+        summary: summary({ kind: 'insufficient', grounded: true }),
+      }),
+    )
+
+    expect(screen.queryByText(/gap in what has been indexed/)).not.toBeInTheDocument()
+    expect(screen.getByText(/not a question Ethiopian law answers/)).toBeInTheDocument()
   })
 
   it('still shows the provisions that were read', () => {
@@ -244,6 +331,9 @@ describe('TurnView honesty about what an answer is', () => {
     )
 
     expect(screen.getByText(/Sources \(1\)/)).toBeInTheDocument()
+    // Provisions were cited and are on screen, so this genuinely is a corpus
+    // gap and the callout may say so.
+    expect(screen.getByText(/gap in what has been indexed/)).toBeInTheDocument()
   })
 
   it('says when an answer was cut off rather than showing it as finished', () => {

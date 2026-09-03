@@ -56,9 +56,22 @@ export function TurnView({
   // question. Not an answer, and not an abstention either — the sources are real
   // and worth reading.
   const insufficient = kind === 'insufficient'
+  // An insufficient answer that cited nothing has no sources panel below it, so
+  // it cannot point at "the provisions below" — and it must not blame the
+  // corpus either. The commonest way to land here is a question the corpus was
+  // never going to answer (a finance or economics question routed to retrieval
+  // by mistake), where promising an indexing gap promises a capability that
+  // will never arrive.
+  const insufficientWithNoSources = insufficient && turn.citations.length === 0
   const truncated = turn.summary?.truncated ?? false
   const ungrounded =
     kind === 'legal' && turn.summary ? !turn.summary.grounded : false
+  // Only meaningful for a legal answer that actually reached generation —
+  // insufficient/abstention/conversation results never compute it, and
+  // showing a confidence note next to their own dedicated explanation would
+  // just be noise.
+  const confidence = kind === 'legal' ? (turn.summary?.confidence ?? null) : null
+  const lowEvidence = confidence !== null && confidence.level !== 'high'
 
   return (
     <article className="space-y-3">
@@ -118,7 +131,22 @@ export function TurnView({
           </Callout>
         ) : null}
 
-        {insufficient ? (
+        {lowEvidence && confidence ? (
+          <Callout tone="info" className="mt-4" title="Limited evidence">
+            {confidence.level === 'low'
+              ? 'Only one weakly-matching source was found for this question. Treat this as a starting point, not the final word — a narrower question or an article number may find something stronger.'
+              : 'The sources for this answer agree only loosely — no exact article match, and no agreement between search methods. Worth double-checking the details in the sources below.'}
+          </Callout>
+        ) : null}
+
+        {insufficientWithNoSources ? (
+          <Callout tone="info" className="mt-4" title="Nothing found was relevant enough to cite">
+            The corpus was searched and read, and none of it bore on this
+            question closely enough to quote — so no sources are shown. Either
+            the law on this point is not indexed yet, or this is not a question
+            Ethiopian law answers.
+          </Callout>
+        ) : insufficient ? (
           <Callout tone="info" className="mt-4" title="The corpus did not settle this">
             The provisions below were retrieved and read, and they do not answer
             the question. That is a gap in what has been indexed, not a statement
