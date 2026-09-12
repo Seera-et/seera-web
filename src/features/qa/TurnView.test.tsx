@@ -352,3 +352,39 @@ describe('TurnView honesty about what an answer is', () => {
     expect(screen.queryByText('This answer was cut off')).not.toBeInTheDocument()
   })
 })
+
+/**
+ * Rule 12 of the answer prompt lets the model add a section it states is not
+ * drawn from the corpus. Rendered in the same type as the cited explanation
+ * above it, nothing told a reader which half carried sources.
+ */
+describe('TurnView separates unsourced guidance from cited answer', () => {
+  const withGuidance =
+    'Capital must be fully paid [S1].\n\n' +
+    'General guidance (not verified against the corpus):\n' +
+    'Typically this exists to protect creditors. Verify it.'
+
+  it('frames the guidance section and labels it as not from the corpus', () => {
+    render(turn({ answer: withGuidance, summary: summary({ kind: 'legal' }) }))
+
+    expect(screen.getByText('Not from the corpus')).toBeInTheDocument()
+    expect(
+      screen.getByText(/Typically this exists to protect creditors/),
+    ).toBeInTheDocument()
+    // The heading is the frame's label, not body text repeated inside it.
+    expect(
+      screen.queryByText(/General guidance \(not verified/),
+    ).not.toBeInTheDocument()
+  })
+
+  it('leaves an answer with no guidance section untouched', () => {
+    render(
+      turn({
+        answer: 'Capital must be fully paid [S1].',
+        summary: summary({ kind: 'legal' }),
+      }),
+    )
+
+    expect(screen.queryByText('Not from the corpus')).not.toBeInTheDocument()
+  })
+})

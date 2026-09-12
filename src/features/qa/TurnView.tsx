@@ -27,6 +27,7 @@ import { saveAnswerBookmark } from '@/features/bookmarks/store'
 import { formatDate, langAttr } from '@/lib/utils/format'
 import { AnswerMeta } from './AnswerMeta'
 import { AnswerText } from './AnswerText'
+import { splitGuidance } from './guidance'
 import { SourcesPanel } from './SourcesPanel'
 import type { Turn } from './useQaConversation'
 
@@ -63,6 +64,9 @@ export function TurnView({
   // by mistake), where promising an indexing gap promises a capability that
   // will never arrive.
   const insufficientWithNoSources = insufficient && turn.citations.length === 0
+  // The model may append a section it states is not drawn from the corpus.
+  // Split out so it cannot be read as part of the cited explanation above it.
+  const { sourced, guidance } = splitGuidance(turn.answer)
   const truncated = turn.summary?.truncated ?? false
   const ungrounded =
     kind === 'legal' && turn.summary ? !turn.summary.grounded : false
@@ -113,12 +117,15 @@ export function TurnView({
           {turn.phase === 'error' && turn.error ? (
             <ErrorState error={turn.error} onRetry={onRetry} className="py-6" />
           ) : turn.answer ? (
-            <AnswerText
-              text={turn.answer}
-              citations={turn.citations}
-              streaming={streaming}
-              onOpenSource={onOpenSource}
-            />
+            <>
+              <AnswerText
+                text={sourced}
+                citations={turn.citations}
+                streaming={streaming}
+                onOpenSource={onOpenSource}
+              />
+              {guidance ? <GeneralGuidance text={guidance} /> : null}
+            </>
           ) : (
             <SkeletonText lines={4} />
           )}
@@ -328,6 +335,44 @@ function RelatedQuestions({
           </li>
         ))}
       </ul>
+    </section>
+  )
+}
+
+/**
+ * The section the model states is not drawn from the corpus.
+ *
+ * Framed rather than hidden. It is prose about Ethiopian law carrying no
+ * citations, and rendered in the same type as the sourced explanation above it
+ * nothing tells a reader which half is which — which is exactly how an answer
+ * ends up trusted for the part that was never grounded. The backend also stops
+ * reporting such an answer as grounded when it appears on a question the
+ * sources did settle.
+ *
+ * Deliberately not an AnswerText: no citation markers are parsed here, because
+ * by construction there are none to resolve and a marker in this block would be
+ * claiming a source it does not have.
+ */
+function GeneralGuidance({ text }: { text: string }) {
+  return (
+    <section
+      className="mt-4 rounded-card border border-dashed border-line bg-surface-sunken p-4"
+      aria-label="General guidance, not verified against the corpus"
+    >
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+        <TriangleAlert aria-hidden="true" className="size-3.5" />
+        Not from the corpus
+      </p>
+      <p
+        className="mt-2 whitespace-pre-line text-[0.95rem] leading-relaxed text-ink-soft"
+        lang={langAttr(text)}
+      >
+        {text}
+      </p>
+      <p className="mt-2 text-xs text-ink-muted">
+        General knowledge, not drawn from any indexed Ethiopian legal source and
+        not cited. Verify it before relying on it.
+      </p>
     </section>
   )
 }
