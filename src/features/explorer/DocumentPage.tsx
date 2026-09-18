@@ -19,7 +19,7 @@ import { formatDate, formatNumber } from '@/lib/utils/format'
 import type { DocumentVersion } from '@/lib/api'
 import { ArticleView } from './ArticleView'
 import { DOC_TYPE_LABELS } from './labels'
-import { DOC_PARAM } from './url'
+import { DOC_PARAM, documentPath } from './url'
 
 /**
  * The document viewer: `/documents/:id?version=&article=&chunk=`.
@@ -36,8 +36,14 @@ export function DocumentPage() {
   const articleNo = searchParams.get(DOC_PARAM.article)
   const chunkId = searchParams.get(DOC_PARAM.chunk)
 
+  // A search hit deep-links with a cursor so the provision is on the first page
+  // fetched. Without it a link to Article 500 of an 823-article code opens at
+  // Article 1 and the reader has to page there by hand.
+  const rawFrom = Number.parseInt(searchParams.get(DOC_PARAM.from) ?? '', 10)
+  const from = Number.isFinite(rawFrom) && rawFrom > 0 ? rawFrom : 0
+
   const documentQuery = useDocument(documentId)
-  const articlesQuery = useArticles(documentId, versionParam)
+  const articlesQuery = useArticles(documentId, versionParam, from)
   // Resolved separately so a citation link shows its exact source immediately,
   // without waiting for the page of articles that happens to contain it.
   const citedQuery = useCitation(chunkId)
@@ -167,6 +173,27 @@ export function DocumentPage() {
         <Callout tone="warning" title="This is not the current version">
           You are reading a superseded version. Switch to the published one unless
           you specifically need the law as it stood.
+        </Callout>
+      ) : null}
+
+      {/* The reader arrived mid-document from a search result or citation. Say
+          so, and offer the way back to the top — otherwise the list silently
+          starts at an arbitrary article and looks like a document with its
+          opening missing. */}
+      {from > 0 ? (
+        <Callout tone="info" title="Opened partway into this document">
+          Showing from {articleNo ? `Article ${articleNo}` : 'the linked provision'}{' '}
+          onwards.{' '}
+          <Link
+            to={documentPath({
+              documentId,
+              versionId: versionParam ?? undefined,
+            })}
+            className="font-medium underline"
+          >
+            Read from the beginning
+          </Link>
+          .
         </Callout>
       ) : null}
 

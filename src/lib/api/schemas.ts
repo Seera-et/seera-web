@@ -13,6 +13,7 @@ import type {
   AnswerTimings,
   ArticlePage,
   ArticleRecord,
+  CorpusSearch,
   CorpusStats,
   DocumentDetail,
   DocumentList,
@@ -21,6 +22,7 @@ import type {
   HealthStatus,
   ResolvedCitation,
   RouteInfo,
+  SearchHit,
   StructureConfidence,
 } from './types'
 
@@ -399,6 +401,15 @@ export const corpusStatsSchema = z
     doc_types: z
       .array(z.object({ doc_type: docTypeSchema, documents: z.number().int() }))
       .nullish(),
+    domains: z
+      .array(
+        z.object({
+          domain: z.string(),
+          documents: z.number().int(),
+          articles: z.number().int(),
+        }),
+      )
+      .nullish(),
     last_published_at: nullableString,
   })
   .transform(
@@ -412,7 +423,83 @@ export const corpusStatsSchema = z
         docType: stat.doc_type,
         documents: stat.documents,
       })),
+      domains: raw.domains ?? [],
       lastPublishedAt: raw.last_published_at,
+    }),
+  )
+
+/* ---------- Corpus search ---------- */
+
+const searchModeSchema = z.enum(['hybrid', 'keyword', 'semantic'])
+
+const searchHitSchema = z
+  .object({
+    document_id: z.string(),
+    document_title: z.string(),
+    doc_type: docTypeSchema,
+    issuing_authority: nullableString,
+    language: z.string(),
+
+    version_id: z.string(),
+    version_label: z.string(),
+    version_status: z.enum(['draft', 'published', 'superseded']),
+
+    article_id: z.string(),
+    article_no: z.string(),
+    article_title: nullableString,
+    chapter: nullableString,
+    section_path: stringList,
+    ordinal: z.number().int(),
+
+    chunk_id: nullableString,
+    snippet: z.string(),
+    structure_confidence: structureConfidence,
+    score: z.number(),
+    matched_by: stringList,
+  })
+  .transform(
+    (raw): SearchHit => ({
+      documentId: raw.document_id,
+      documentTitle: raw.document_title,
+      docType: raw.doc_type,
+      issuingAuthority: raw.issuing_authority,
+      language: raw.language,
+      versionId: raw.version_id,
+      versionLabel: raw.version_label,
+      versionStatus: raw.version_status,
+      articleId: raw.article_id,
+      articleNo: raw.article_no,
+      articleTitle: raw.article_title,
+      chapter: raw.chapter,
+      sectionPath: raw.section_path,
+      ordinal: raw.ordinal,
+      chunkId: raw.chunk_id,
+      snippet: raw.snippet,
+      structureConfidence: raw.structure_confidence ?? 'high',
+      score: raw.score,
+      matchedBy: raw.matched_by,
+    }),
+  )
+
+export const corpusSearchSchema = z
+  .object({
+    hits: z.array(searchHitSchema).nullish(),
+    total: z.number().int(),
+    capped: z.boolean().nullish(),
+    mode: searchModeSchema,
+    article_refs: stringList,
+    limit: z.number().int(),
+    offset: z.number().int(),
+  })
+  .transform(
+    (raw): CorpusSearch => ({
+      hits: raw.hits ?? [],
+      total: raw.total,
+      capped: raw.capped ?? false,
+      mode: raw.mode,
+      articleRefs: raw.article_refs,
+      limit: raw.limit,
+      offset: raw.offset,
     }),
   )
 

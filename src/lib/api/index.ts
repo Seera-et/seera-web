@@ -8,7 +8,9 @@ export {
   getCorpusStats,
   getDocument,
   listDocuments,
+  searchCorpus,
 } from './documents'
+export { SNIPPET_HIGHLIGHT_END, SNIPPET_HIGHLIGHT_START } from './types'
 export { getHealth } from './health'
 export { streamAnswer, type QaStreamHandlers } from './qa'
 export type {
@@ -24,6 +26,7 @@ export type {
   ArticleRecord,
   AskInput,
   CitationBase,
+  CorpusSearch,
   CorpusStats,
   DocType,
   DocumentDetail,
@@ -31,11 +34,15 @@ export type {
   DocumentQuery,
   DocumentSummary,
   DocumentVersion,
+  DomainStat,
   HealthStatus,
   HistoryTurn,
   Language,
   ResolvedCitation,
   RouteInfo,
+  SearchHit,
+  SearchMode,
+  SearchQuery,
   StructureConfidence,
   Suggestion,
   VersionStatus,

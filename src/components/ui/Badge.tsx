@@ -18,14 +18,17 @@ const tones: Record<BadgeTone, string> = {
 type BadgeProps = {
   tone?: BadgeTone
   icon?: ReactNode
+  /** Hover/focus explanation for a label too short to carry its own meaning. */
+  title?: string
   className?: string
   children: ReactNode
 }
 
 /** Small status label. Always carries text — colour is never the only signal. */
-export function Badge({ tone = 'neutral', icon, className, children }: BadgeProps) {
+export function Badge({ tone = 'neutral', icon, title, className, children }: BadgeProps) {
   return (
     <span
+      title={title}
       className={cn(
         'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1',
         'text-xs font-medium [&_svg]:size-3.5 [&_svg]:shrink-0',

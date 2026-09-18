@@ -258,6 +258,110 @@ export type DocumentQuery = {
   term?: string
   language?: Language
   docType?: DocType
+  /** Exact legal domain, as offered by `CorpusStats.domains`. */
+  domain?: string
+  /** Publication or effective year. */
+  year?: number
+  limit?: number
+  offset?: number
+}
+
+/* ---------- Corpus search ---------- */
+
+/**
+ * Which retrieval arms rank a search.
+ *
+ * `keyword` finds the term a lawyer typed; `semantic` finds the provision a
+ * citizen described without using its words. They genuinely disagree — a query
+ * like "how much money must I put in to start a business" returns nothing
+ * lexically and the capital provisions semantically — so the choice is exposed
+ * rather than hidden. `hybrid` fuses both and is the default.
+ */
+export type SearchMode = 'hybrid' | 'keyword' | 'semantic'
+
+/**
+ * Markers the server wraps matched terms in, inside `SearchHit.snippet`.
+ *
+ * Private Use Area codepoints, not HTML: the snippet is split on these and
+ * rendered as elements, so legal text never reaches an HTML parser. Must match
+ * `HighlightStart`/`HighlightEnd` in
+ * seera-backend-services/internal/documents/search.go.
+ */
+export const SNIPPET_HIGHLIGHT_START = '\ue000'
+export const SNIPPET_HIGHLIGHT_END = '\ue001'
+
+/** One article matched by a corpus search. */
+export type SearchHit = {
+  documentId: string
+  documentTitle: string
+  docType: DocType
+  issuingAuthority: string | null
+  language: Language | string
+
+  versionId: string
+  versionLabel: string
+  versionStatus: VersionStatus
+
+  articleId: string
+  articleNo: string
+  articleTitle: string | null
+  chapter: string | null
+  sectionPath: string[]
+  /** Position in the version — the cursor the document viewer opens at. */
+  ordinal: number
+
+  /** First retrievable chunk, or null when the article was never indexed. */
+  chunkId: string | null
+
+  /**
+   * Matched text with the highlight markers around the terms. On a
+   * semantic-only hit there is nothing lexical to mark and this is the opening
+   * of the provision instead, which is why it is never labelled as "the
+   * matching sentence".
+   */
+  snippet: string
+
+  structureConfidence: StructureConfidence
+
+  /** Fused rank score. Comparable only within one response; not a percentage. */
+  score: number
+
+  /**
+   * Which arms found this hit. Agreement between lexical and semantic
+   * retrieval is the strongest signal either produces.
+   */
+  matchedBy: string[]
+}
+
+export type CorpusSearch = {
+  hits: SearchHit[]
+  /**
+   * How many articles were ranked — the pool these pages slice, not a
+   * corpus-wide count of everything that would ever match.
+   */
+  total: number
+  /** Matches exist beyond the ranked pool, so `total` is a floor, not a count. */
+  capped: boolean
+  /**
+   * The mode that actually ran. A deployment with no embedding provider serves
+   * a hybrid request as keyword-only, and says so here rather than pretending.
+   */
+  mode: SearchMode
+  /** Article numbers recognised in the query, if any. */
+  articleRefs: string[]
+  limit: number
+  offset: number
+}
+
+export type SearchQuery = {
+  term: string
+  mode?: SearchMode
+  language?: Language
+  docType?: DocType
+  domain?: string
+  year?: number
+  documentId?: string
+  includeSuperseded?: boolean
   limit?: number
   offset?: number
 }
@@ -273,6 +377,14 @@ export type DocTypeStat = {
   documents: number
 }
 
+/** One legal domain and how much of the corpus sits in it — the browse
+ * categories, derived from what was ingested rather than a fixed taxonomy. */
+export type DomainStat = {
+  domain: string
+  documents: number
+  articles: number
+}
+
 /** What the corpus contains, counted over published versions only. */
 export type CorpusStats = {
   documents: number
@@ -281,5 +393,7 @@ export type CorpusStats = {
   chunks: number
   languages: LanguageStat[]
   docTypes: DocTypeStat[]
+  /** Browse categories. Excludes documents ingested without a domain. */
+  domains: DomainStat[]
   lastPublishedAt: string | null
 }

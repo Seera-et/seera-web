@@ -63,9 +63,14 @@ describe('ExplorerPage', () => {
 
     await screen.findByText(/Nothing matches those filters/)
 
-    expect(urls[0]).toContain('q=labour')
-    expect(urls[0]).toContain('language=am')
-    expect(urls[0]).toContain('type=proclamation')
+    // Picked out by path rather than by position: the page also asks for corpus
+    // stats (the domain facets), and the order the two resolve in is not
+    // something this test should depend on.
+    const catalogue = urls.find((url) => url.includes('/documents?'))
+    expect(catalogue).toBeDefined()
+    expect(catalogue).toContain('q=labour')
+    expect(catalogue).toContain('language=am')
+    expect(catalogue).toContain('type=proclamation')
   })
 
   it('distinguishes an empty corpus from an over-filtered one', async () => {
