@@ -7,7 +7,9 @@
  * articles under another document's key.
  */
 
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useMutation, useQuery } from '@tanstack/react-query'
+import { getAccount } from './account'
+import { getBusinessIntake, requestAdvice } from './business'
 import { getCitation } from './citations'
 import {
   getArticles,
@@ -17,11 +19,12 @@ import {
   searchCorpus,
 } from './documents'
 import { getHealth } from './health'
-import type { ArticlePage, DocumentQuery, SearchQuery } from './types'
+import type { AdviseInput, ArticlePage, DocumentQuery, SearchQuery } from './types'
 
 /** Cache keys, in one hierarchy so a prefix can invalidate a whole area. */
 export const queryKeys = {
   health: ['health'] as const,
+  account: ['account', 'me'] as const,
   corpusStats: ['corpus', 'stats'] as const,
   documents: (query: DocumentQuery) => ['documents', 'list', query] as const,
   document: (id: string) => ['documents', 'detail', id] as const,
@@ -29,6 +32,7 @@ export const queryKeys = {
     ['documents', 'articles', id, versionId, from] as const,
   corpusSearch: (query: SearchQuery) => ['documents', 'search', query] as const,
   citation: (chunkId: string) => ['citations', chunkId] as const,
+  businessIntake: ['business', 'intake'] as const,
 }
 
 /**
@@ -36,6 +40,31 @@ export const queryKeys = {
  * data can be considered fresh for minutes rather than seconds.
  */
 const CORPUS_STALE_MS = 5 * 60 * 1000
+
+/**
+ * The caller's Seera account, and the call that creates it.
+ *
+ * GET /api/v1/me upserts, so this is registration as well as a read: the first
+ * time a Google identity reaches the API it becomes a row in app_users, and
+ * every later call refreshes the profile and last_seen_at. There is no separate
+ * sign-up request to make because there is no separate sign-up.
+ *
+ * `enabled` is the caller's way of saying "there is a session"; without one the
+ * request would be a guaranteed 401.
+ */
+export function useAccount(enabled: boolean) {
+  return useQuery({
+    queryKey: queryKeys.account,
+    queryFn: ({ signal }) => getAccount(signal),
+    enabled,
+    // The account changes only when the profile behind it does. Refetching on
+    // focus would also mean a database write on every tab switch.
+    staleTime: Infinity,
+    refetchOnWindowFocus: false,
+    // A 401 here means the session went away, which a retry cannot fix.
+    retry: false,
+  })
+}
 
 export function useCorpusStats() {
   return useQuery({
@@ -137,5 +166,35 @@ export function useHealth() {
     refetchInterval: 60_000,
     retry: false,
     staleTime: 30_000,
+  })
+}
+
+/**
+ * The advisor's questionnaire.
+ *
+ * Cached as long as the catalogue: the options come from a rule set that changes
+ * only when an administrator publishes one.
+ */
+export function useBusinessIntake() {
+  return useQuery({
+    queryKey: queryKeys.businessIntake,
+    queryFn: ({ signal }) => getBusinessIntake(signal),
+    staleTime: CORPUS_STALE_MS,
+    // A missing rule set is a 503 that will not fix itself on retry, and the
+    // page says so; retrying would only delay that message.
+    retry: false,
+  })
+}
+
+/**
+ * The recommendation.
+ *
+ * A mutation rather than a query, even though it reads nothing: it is a POST
+ * whose result is a function of answers the reader submits, so it should run
+ * when they ask for it and not on render.
+ */
+export function useAdvice() {
+  return useMutation({
+    mutationFn: (input: AdviseInput) => requestAdvice(input),
   })
 }

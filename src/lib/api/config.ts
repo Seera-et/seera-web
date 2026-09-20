@@ -18,6 +18,7 @@ export function apiUrl(path: string): string {
 /** Paths, in one place, matching seera-backend-services/internal/server/routes.go. */
 export const endpoints = {
   health: '/healthz',
+  me: `${API_PREFIX}/me`,
   qaQuery: `${API_PREFIX}/qa/query`,
   citation: (chunkId: string) =>
     `${API_PREFIX}/citations/${encodeURIComponent(chunkId)}`,

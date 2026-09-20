@@ -38,8 +38,23 @@ export class ApiError extends Error {
     this.requestId = init.requestId
   }
 
+  /**
+   * True when the API refused because nobody is signed in.
+   *
+   * Worth its own check rather than leaving callers to compare status codes:
+   * this is the one failure whose remedy is "sign in", not "try again", and
+   * showing it as a generic error would send people to a retry button that can
+   * never work. It also covers a session that expired mid-visit, where the
+   * client still believes it is signed in.
+   */
+  get unauthenticated(): boolean {
+    return this.status === 401
+  }
+
   /** True when retrying the same request could plausibly succeed. */
   get retryable(): boolean {
+    // Retrying with the same (absent or expired) token gets the same 401.
+    if (this.unauthenticated) return false
     if (this.kind === 'network' || this.kind === 'stream') return true
     if (this.kind === 'contract') return false
     if (this.status !== undefined && this.status >= 500) return true

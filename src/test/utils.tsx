@@ -2,11 +2,43 @@ import { StrictMode, type ReactElement, type ReactNode } from 'react'
 import { render, type RenderOptions } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { vi } from 'vitest'
+import {
+  AuthContext,
+  type AuthContextValue,
+  type AuthStatus,
+  type AuthUser,
+} from '@/lib/auth/context'
 
 /**
  * Test helpers: the providers a component needs, and a way to hand it a
  * Server-Sent Events response without a server.
  */
+
+export const testUser: AuthUser = {
+  id: 'user-test-1',
+  email: 'abebe@example.com',
+  name: 'Abebe Bekele',
+  avatarUrl: null,
+}
+
+/**
+ * A session under the test's control, rather than the real provider.
+ *
+ * The real AuthProvider talks to Supabase, which is not configured under test —
+ * and more importantly a test asserting on a guard needs to *choose* whether
+ * someone is signed in. Defaults to signed-in because most components that read
+ * the session live behind the guard, so that is their real-world condition.
+ */
+export function stubAuth(status: AuthStatus = 'signed-in'): AuthContextValue {
+  return {
+    status,
+    user: status === 'signed-in' ? testUser : null,
+    configured: true,
+    signInWithGoogle: vi.fn(async () => {}),
+    signOut: vi.fn(async () => {}),
+  }
+}
 
 /** A client that fails fast and caches nothing between tests. */
 export function testQueryClient(): QueryClient {
@@ -17,15 +49,25 @@ export function testQueryClient(): QueryClient {
   })
 }
 
+export type ProviderOptions = {
+  route?: string
+  strict?: boolean
+  /** The session to render under. A status is shorthand for the usual shapes. */
+  auth?: AuthStatus | AuthContextValue
+}
+
 export function withProviders(
   ui: ReactNode,
-  { route = '/', strict = false }: { route?: string; strict?: boolean } = {},
+  { route = '/', strict = false, auth = 'signed-in' }: ProviderOptions = {},
 ) {
   const client = testQueryClient()
+  const session = typeof auth === 'string' ? stubAuth(auth) : auth
   const tree = (
-    <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
-    </QueryClientProvider>
+    <AuthContext.Provider value={session}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+      </QueryClientProvider>
+    </AuthContext.Provider>
   )
 
   // Opt-in, because StrictMode double-invokes effects and state updaters: most
@@ -38,19 +80,16 @@ export function withProviders(
 
 export function renderWithProviders(
   ui: ReactElement,
-  options: RenderOptions & { route?: string } = {},
+  options: RenderOptions & ProviderOptions = {},
 ) {
-  const { route, ...renderOptions } = options
-  return render(withProviders(ui, { route }), renderOptions)
+  const { route, strict, auth, ...renderOptions } = options
+  return render(withProviders(ui, { route, strict, auth }), renderOptions)
 }
 
 /** Wrapper form, for renderHook. */
-export function providerWrapper({
-  route,
-  strict,
-}: { route?: string; strict?: boolean } = {}) {
+export function providerWrapper({ route, strict, auth }: ProviderOptions = {}) {
   return function Wrapper({ children }: { children: ReactNode }) {
-    return withProviders(children, { route, strict })
+    return withProviders(children, { route, strict, auth })
   }
 }
 

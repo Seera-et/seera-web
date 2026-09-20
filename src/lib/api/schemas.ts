@@ -7,6 +7,7 @@
 import { z } from 'zod'
 import { ApiError } from './errors'
 import type {
+  Account,
   AnswerCitation,
   AnswerConfidence,
   AnswerSummary,
@@ -24,6 +25,14 @@ import type {
   RouteInfo,
   SearchHit,
   StructureConfidence,
+  BusinessActivity,
+  BusinessCandidate,
+  BusinessIntakeForm,
+  BusinessRecommendation,
+  BusinessReason,
+  BusinessRequirement,
+  BusinessStructure,
+  RuleSource,
 } from './types'
 
 /** `omitempty` on the Go side means the key is absent, not null — accept both. */
@@ -509,6 +518,28 @@ export const healthSchema = z
   .object({ status: z.string(), db: z.string() })
   .transform((raw): HealthStatus => ({ status: raw.status, db: raw.db }))
 
+export const accountSchema = z
+  .object({
+    id: z.string(),
+    email: z.string(),
+    display_name: z.string(),
+    avatar_url: z.string(),
+    created_at: z.string(),
+    last_seen_at: z.string(),
+    is_new: z.boolean(),
+  })
+  .transform(
+    (raw): Account => ({
+      id: raw.id,
+      email: raw.email,
+      displayName: raw.display_name,
+      avatarUrl: raw.avatar_url,
+      createdAt: raw.created_at,
+      lastSeenAt: raw.last_seen_at,
+      isNew: raw.is_new,
+    }),
+  )
+
 /** The error envelope every JSON failure uses: `{"error":{code,message,request_id}}`. */
 export const errorEnvelopeSchema = z.object({
   error: z.object({
@@ -538,3 +569,195 @@ export function parseOrThrow<T>(
   }
   return result.data
 }
+
+/* ---------- Business & License Advisor ---------- */
+
+const ruleSourceSchema = z
+  .object({
+    document_id: z.string(),
+    document_title: z.string(),
+    article_no: z.string(),
+    pinpoint: nullableString,
+    facet: nullableString,
+    chunk_id: nullableString,
+    article_title: nullableString,
+    text: nullableString,
+  })
+  .transform(
+    (raw): RuleSource => ({
+      documentId: raw.document_id,
+      documentTitle: raw.document_title,
+      articleNo: raw.article_no,
+      pinpoint: raw.pinpoint,
+      facet: raw.facet,
+      chunkId: raw.chunk_id,
+      articleTitle: raw.article_title,
+      text: raw.text,
+    }),
+  )
+
+const ruleSources = z
+  .array(ruleSourceSchema)
+  .nullish()
+  .transform((value) => value ?? [])
+
+/** `omitempty` on a Go numeric pointer means absent, which is "not
+ * established" — deliberately distinct from zero. */
+const nullableNumber = z
+  .number()
+  .nullish()
+  .transform((value) => value ?? null)
+
+const nullableBool = z
+  .boolean()
+  .nullish()
+  .transform((value) => value ?? null)
+
+const businessStructureSchema = z
+  .object({
+    code: z.string(),
+    name: z.string(),
+    name_suffix: nullableString,
+    summary: nullableString,
+    liability: nullableString,
+    min_members: nullableNumber,
+    max_members: nullableNumber,
+    min_capital: nullableNumber,
+    min_share_par: nullableNumber,
+    currency: nullableString,
+    allows_public_subscription: nullableBool,
+    sources: ruleSources,
+  })
+  .transform(
+    (raw): BusinessStructure => ({
+      code: raw.code,
+      name: raw.name,
+      nameSuffix: raw.name_suffix,
+      summary: raw.summary,
+      liability: raw.liability,
+      minMembers: raw.min_members,
+      maxMembers: raw.max_members,
+      minCapital: raw.min_capital,
+      minSharePar: raw.min_share_par,
+      currency: raw.currency,
+      allowsPublicSubscription: raw.allows_public_subscription,
+      sources: raw.sources,
+    }),
+  )
+
+const businessActivitySchema = z
+  .object({
+    code: z.string(),
+    name: z.string(),
+    regulated: z.boolean().nullish(),
+    sources: ruleSources,
+  })
+  .transform(
+    (raw): BusinessActivity => ({
+      code: raw.code,
+      name: raw.name,
+      regulated: raw.regulated ?? false,
+      sources: raw.sources,
+    }),
+  )
+
+const businessRequirementSchema = z
+  .object({
+    kind: z.enum(['step', 'licence', 'caveat']),
+    structure_code: nullableString,
+    activity_code: nullableString,
+    title: z.string(),
+    detail: nullableString,
+    authority: nullableString,
+    sources: ruleSources,
+  })
+  .transform(
+    (raw): BusinessRequirement => ({
+      kind: raw.kind,
+      structureCode: raw.structure_code,
+      activityCode: raw.activity_code,
+      title: raw.title,
+      detail: raw.detail,
+      authority: raw.authority,
+      sources: raw.sources,
+    }),
+  )
+
+const businessReasonSchema = z
+  .object({
+    code: z.string(),
+    message: z.string(),
+    disqualifying: z.boolean().nullish(),
+    sources: ruleSources,
+  })
+  .transform(
+    (raw): BusinessReason => ({
+      code: raw.code,
+      message: raw.message,
+      disqualifying: raw.disqualifying ?? false,
+      sources: raw.sources,
+    }),
+  )
+
+const businessCandidateSchema = z
+  .object({
+    structure: businessStructureSchema,
+    eligible: z.boolean().nullish(),
+    reasons: z.array(businessReasonSchema).nullish(),
+  })
+  .transform(
+    (raw): BusinessCandidate => ({
+      structure: raw.structure,
+      eligible: raw.eligible ?? false,
+      reasons: raw.reasons ?? [],
+    }),
+  )
+
+const stringLines = z
+  .array(z.string())
+  .nullish()
+  .transform((value) => value ?? [])
+
+export const businessIntakeFormSchema = z
+  .object({
+    rule_set_id: z.string(),
+    rule_set_label: z.string(),
+    activities: z.array(businessActivitySchema).nullish(),
+    structures: z.array(businessStructureSchema).nullish(),
+    unsupported: stringLines,
+  })
+  .transform(
+    (raw): BusinessIntakeForm => ({
+      ruleSetId: raw.rule_set_id,
+      ruleSetLabel: raw.rule_set_label,
+      activities: raw.activities ?? [],
+      structures: raw.structures ?? [],
+      unsupported: raw.unsupported,
+    }),
+  )
+
+export const businessRecommendationSchema = z
+  .object({
+    rule_set_id: z.string(),
+    rule_set_label: z.string(),
+    recommended: businessCandidateSchema.nullish(),
+    alternatives: z.array(businessCandidateSchema).nullish(),
+    excluded: z.array(businessCandidateSchema).nullish(),
+    steps: z.array(businessRequirementSchema).nullish(),
+    licences: z.array(businessRequirementSchema).nullish(),
+    caveats: z.array(businessRequirementSchema).nullish(),
+    unsupported: stringLines,
+  })
+  .transform(
+    (raw): BusinessRecommendation => ({
+      ruleSetId: raw.rule_set_id,
+      ruleSetLabel: raw.rule_set_label,
+      recommended: raw.recommended ?? null,
+      alternatives: raw.alternatives ?? [],
+      excluded: raw.excluded ?? [],
+      steps: raw.steps ?? [],
+      licences: raw.licences ?? [],
+      caveats: raw.caveats ?? [],
+      unsupported: raw.unsupported,
+    }),
+  )

@@ -1,6 +1,8 @@
 import { Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import { Spinner } from '@/components/ui'
+import { useAccount } from '@/lib/api/queries'
+import { useAuth } from '@/lib/auth/useAuth'
 import { HelpCard } from './HelpCard'
 import { SiteFooter } from './SiteFooter'
 import { TopNav } from './TopNav'
@@ -16,7 +18,18 @@ import { UpgradeCard } from './UpgradeCard'
  */
 export function AppShell() {
   const { pathname } = useLocation()
+  const { status } = useAuth()
   const showRails = pathname !== '/chat'
+
+  // Registers the account on first sign-in and refreshes it afterwards.
+  //
+  // It lives here, in the one component every route renders inside, rather than
+  // on the sign-in page: a session restored from storage on a later visit never
+  // passes through /signin, and an account that only existed for people who
+  // came in through the front door would be missing for most users. Nothing is
+  // rendered from it — the header reads the session, not this — so a failure is
+  // silent by design and costs the visitor nothing.
+  useAccount(status === 'signed-in')
 
   return (
     <div className="flex min-h-dvh flex-col bg-canvas">

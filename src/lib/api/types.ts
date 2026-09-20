@@ -151,6 +151,22 @@ export type HealthStatus = {
   db: 'up' | 'down' | string
 }
 
+/** The caller's Seera account, from GET /api/v1/me. */
+export type Account = {
+  id: string
+  email: string
+  displayName: string
+  avatarUrl: string
+  createdAt: string
+  lastSeenAt: string
+  /**
+   * True when this call created the account. With Google there is no separate
+   * sign-up step, so first sign-in is registration, and this is the only signal
+   * that distinguishes a new account from a returning one.
+   */
+  isNew: boolean
+}
+
 /** One earlier exchange, sent with a follow-up question. */
 export type HistoryTurn = {
   role: 'user' | 'assistant'
@@ -396,4 +412,144 @@ export type CorpusStats = {
   /** Browse categories. Excludes documents ingested without a domain. */
   domains: DomainStat[]
   lastPublishedAt: string | null
+}
+
+/* ---------- Business & License Advisor ---------- */
+
+/** Which part of a rule a citation supports. */
+export type RuleFacet =
+  | 'general'
+  | 'members'
+  | 'capital'
+  | 'liability'
+  | 'public_shares'
+
+/**
+ * One provision a rule rests on.
+ *
+ * `text` is the article's verbatim text, resolved server-side from the
+ * published corpus. Empty means the cited article did not resolve — shown as
+ * such rather than hidden, because an uncitable rule is one the reader cannot
+ * check.
+ */
+export type RuleSource = {
+  documentId: string
+  documentTitle: string
+  articleNo: string
+  /** Sub-article, where naming it helps ("495/4"). */
+  pinpoint: string | null
+  facet: RuleFacet | string | null
+  chunkId: string | null
+  articleTitle: string | null
+  text: string | null
+}
+
+/** One legal form a business may take. */
+export type BusinessStructure = {
+  code: string
+  name: string
+  nameSuffix: string | null
+  summary: string | null
+  liability: string | null
+  /**
+   * null means the indexed corpus does not establish the bound — which is not
+   * the same as "no limit", and the UI must not render it as one.
+   */
+  minMembers: number | null
+  maxMembers: number | null
+  minCapital: number | null
+  minSharePar: number | null
+  currency: string | null
+  allowsPublicSubscription: boolean | null
+  sources: RuleSource[]
+}
+
+export type BusinessActivity = {
+  code: string
+  name: string
+  /** A sector needing a licence beyond ordinary commercial registration. */
+  regulated: boolean
+  sources: RuleSource[]
+}
+
+export type RequirementKind = 'step' | 'licence' | 'caveat'
+
+export type BusinessRequirement = {
+  kind: RequirementKind
+  structureCode: string | null
+  activityCode: string | null
+  title: string
+  detail: string | null
+  authority: string | null
+  sources: RuleSource[]
+}
+
+/** Why a rule reached its conclusion. Codes, so the UI can style a
+ * disqualification differently from a preference. */
+export type ReasonCode =
+  | 'members_below_minimum'
+  | 'members_above_maximum'
+  | 'members_within_range'
+  | 'member_limit_unknown'
+  | 'capital_below_minimum'
+  | 'capital_sufficient'
+  | 'capital_unknown'
+  | 'capital_not_established'
+  | 'public_shares_not_allowed'
+  | 'public_shares_allowed'
+  | 'limited_liability_match'
+  | 'limited_liability_mismatch'
+
+export type BusinessReason = {
+  code: ReasonCode | string
+  message: string
+  /** True where the finding rules the form out entirely. */
+  disqualifying: boolean
+  sources: RuleSource[]
+}
+
+export type BusinessCandidate = {
+  structure: BusinessStructure
+  eligible: boolean
+  reasons: BusinessReason[]
+}
+
+/**
+ * The advisor's answer.
+ *
+ * Contains no generated prose. Every sentence is either a rule's own reason or
+ * the verbatim text of a provision, which is why there is no streaming
+ * contract here as there is for Q&A.
+ */
+export type BusinessRecommendation = {
+  ruleSetId: string
+  ruleSetLabel: string
+  /** null when the answers rule out every form — an answer, not an error. */
+  recommended: BusinessCandidate | null
+  alternatives: BusinessCandidate[]
+  excluded: BusinessCandidate[]
+  steps: BusinessRequirement[]
+  licences: BusinessRequirement[]
+  caveats: BusinessRequirement[]
+  /** What the reader asked about that this corpus cannot answer. */
+  unsupported: string[]
+}
+
+export type BusinessIntakeForm = {
+  ruleSetId: string
+  ruleSetLabel: string
+  activities: BusinessActivity[]
+  structures: BusinessStructure[]
+  unsupported: string[]
+}
+
+/** Body of POST /api/v1/business/advisor. */
+export type AdviseInput = {
+  founders: number
+  activityCode?: string
+  /** Omit for "not sure" — never sent as 0, which means something else. */
+  capitalBirr?: number
+  wantsLimitedLiability?: boolean
+  raiseFromPublic?: boolean
+  foreignOwnership?: boolean
 }

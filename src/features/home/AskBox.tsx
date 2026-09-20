@@ -5,15 +5,23 @@ import { Button } from '@/components/ui'
 import { LanguagePicker } from '@/features/qa/LanguagePicker'
 import { toLanguage, type LanguageChoice } from '@/features/qa/language'
 import { chatPath } from '@/features/qa/url'
+import { signInPath } from '@/features/auth/url'
+import { useAuth } from '@/lib/auth/useAuth'
 import { cn } from '@/lib/utils/cn'
 
 /**
  * The hero's ask field. It does not answer anything itself: it navigates to
  * /chat with the question in the URL, and the chat page owns the request. That
  * keeps one code path for asking, and makes the resulting answer shareable.
+ *
+ * The box stays usable when signed out — it is the main thing the landing page
+ * invites you to do, and hiding it behind a login would leave the home page
+ * with nothing to offer. Asking is what needs an account, so the gate is on
+ * submit.
  */
 export function AskBox() {
   const navigate = useNavigate()
+  const { status } = useAuth()
   const [question, setQuestion] = useState('')
   const [choice, setChoice] = useState<LanguageChoice>('both')
 
@@ -21,7 +29,24 @@ export function AskBox() {
 
   function submit() {
     if (!trimmed) return
-    navigate(chatPath({ question: trimmed, language: toLanguage(choice) }))
+
+    const destination = chatPath({ question: trimmed, language: toLanguage(choice) })
+
+    // The question is already encoded into `destination`, so routing through
+    // sign-in carries it out to Google and back: the visitor returns to /chat
+    // with what they typed, and it answers. Losing the question here — making
+    // someone retype it after signing in — is the whole reason this is a
+    // redirect with state rather than a modal.
+    //
+    // 'loading' waits: treating an unrestored session as signed out would send
+    // a signed-in user to the login screen for pressing Enter too quickly.
+    if (status === 'signed-out') {
+      navigate(signInPath(destination))
+      return
+    }
+    if (status === 'loading') return
+
+    navigate(destination)
   }
 
   return (
@@ -64,7 +89,7 @@ export function AskBox() {
         <Button
           type="submit"
           size="icon"
-          disabled={!trimmed}
+          disabled={!trimmed || status === 'loading'}
           aria-label="Ask Seera"
           className="size-10"
         >

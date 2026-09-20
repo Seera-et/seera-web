@@ -22,7 +22,7 @@ import {
   SkeletonText,
 } from '@/components/ui'
 import type { Suggestion } from '@/lib/api'
-import { PLACEHOLDER_USER } from '@/app/session'
+import { useAuth } from '@/lib/auth/useAuth'
 import { saveAnswerBookmark } from '@/features/bookmarks/store'
 import { formatDate, langAttr } from '@/lib/utils/format'
 import { AnswerMeta } from './AnswerMeta'
@@ -225,7 +225,7 @@ function Question({ turn }: { turn: Turn }) {
           </p>
         ) : null}
       </div>
-      <Avatar name={PLACEHOLDER_USER.name} size="sm" className="mt-0.5" />
+      <AskerAvatar />
     </div>
   )
 }
@@ -374,5 +374,22 @@ function GeneralGuidance({ text }: { text: string }) {
         not cited. Verify it before relying on it.
       </p>
     </section>
+  )
+}
+
+/**
+ * The avatar beside a question. Chat is behind the auth guard, so there is
+ * always a real user here — but it reads the session rather than assuming one,
+ * because a session can expire while a transcript is still on screen.
+ */
+function AskerAvatar() {
+  const { user } = useAuth()
+  return (
+    <Avatar
+      name={user?.name ?? 'You'}
+      src={user?.avatarUrl}
+      size="sm"
+      className="mt-0.5"
+    />
   )
 }

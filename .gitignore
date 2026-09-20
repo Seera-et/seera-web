@@ -12,6 +12,13 @@ dist
 dist-ssr
 *.local
 
+# Secrets. *.local alone covered .env.local but not .env, which is the file
+# people actually reach for — and a Supabase DATABASE_URL in it is a password
+# one `git add .` from being published.
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

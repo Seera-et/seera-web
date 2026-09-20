@@ -4,12 +4,13 @@
  */
 
 import type { z } from 'zod'
+import { accessToken } from '@/lib/auth/token'
 import { apiUrl } from './config'
 import { ApiError, isAbortError, networkError } from './errors'
 import { errorEnvelopeSchema, parseOrThrow } from './schemas'
 
 type RequestInit_ = {
-  method?: 'GET' | 'POST'
+  method?: 'GET' | 'POST' | 'DELETE'
   body?: unknown
   signal?: AbortSignal
   headers?: Record<string, string>
@@ -18,6 +19,17 @@ type RequestInit_ = {
 async function send(path: string, init: RequestInit_): Promise<Response> {
   const headers: Record<string, string> = { Accept: 'application/json', ...init.headers }
   if (init.body !== undefined) headers['Content-Type'] = 'application/json'
+
+  // Attached here and nowhere else, which is also why the SSE answer stream is
+  // authenticated for free: requestStream goes through this same function. (An
+  // EventSource-based client could not do this — EventSource cannot set
+  // headers, which is a large part of why the stream is fetch-based.)
+  //
+  // Sent whenever a token exists, including on public endpoints: the API reads
+  // it there only to charge rate limits to the person rather than to everyone
+  // sharing their IP.
+  const token = await accessToken()
+  if (token) headers.Authorization = `Bearer ${token}`
 
   try {
     return await fetch(apiUrl(path), {
@@ -56,6 +68,10 @@ async function errorFromResponse(response: Response): Promise<ApiError> {
     // its provider credential is missing, so 404 here is a config problem.
     message =
       'That endpoint is not registered on the API. It is usually a missing provider credential — check the backend startup log.'
+  }
+  if (response.status === 401) {
+    code = 'unauthorized'
+    message = 'Your session has ended. Sign in again to continue.'
   }
   if (response.status === 429) {
     code = 'rate_limited'

@@ -2,16 +2,19 @@ import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import { Menu, X } from 'lucide-react'
 import { BrandMark } from '@/components/BrandMark'
+import { useAuth } from '@/lib/auth/useAuth'
 import { Button } from '@/components/ui'
 import { cn } from '@/lib/utils/cn'
 import { brand } from '../brand'
-import { primaryNav } from '../navigation'
+import { navFor } from '../navigation'
 import { ApiStatus } from './ApiStatus'
 import { ThemeToggle } from './ThemeToggle'
 import { UserMenu } from './UserMenu'
 
 export function TopNav() {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const { status } = useAuth()
+  const nav = navFor(status === 'signed-in')
 
   return (
     <header className="sticky top-0 z-40 border-b border-line bg-surface/85 backdrop-blur-md">
@@ -36,7 +39,7 @@ export function TopNav() {
           aria-label="Primary"
           className="mx-auto hidden h-full items-center gap-1 lg:flex"
         >
-          {primaryNav.map(({ to, label, icon: Icon, end }) => (
+          {nav.map(({ to, label, icon: Icon, end }) => (
             <NavLink key={to} to={to} end={end} className={navLinkClasses}>
               <Icon aria-hidden="true" className="size-4" />
               {label}
@@ -67,7 +70,7 @@ export function TopNav() {
           className="animate-fade-in border-t border-line bg-surface px-4 py-2 lg:hidden"
         >
           <ul className="flex flex-col">
-            {primaryNav.map(({ to, label, icon: Icon, end }) => (
+            {nav.map(({ to, label, icon: Icon, end }) => (
               <li key={to}>
                 <NavLink
                   to={to}

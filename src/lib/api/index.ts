@@ -2,6 +2,8 @@
 
 export { API_BASE_URL, endpoints } from './config'
 export { ApiError, isAbortError, type ApiErrorKind } from './errors'
+export { getBusinessIntake, requestAdvice } from './business'
+export { getAccount } from './account'
 export { getCitation } from './citations'
 export {
   getArticles,
@@ -14,6 +16,7 @@ export { SNIPPET_HIGHLIGHT_END, SNIPPET_HIGHLIGHT_START } from './types'
 export { getHealth } from './health'
 export { streamAnswer, type QaStreamHandlers } from './qa'
 export type {
+  Account,
   AnswerCitation,
   AnswerConfidence,
   AnswerConfidenceLevel,
@@ -25,6 +28,14 @@ export type {
   ArticlePage,
   ArticleRecord,
   AskInput,
+  AdviseInput,
+  BusinessActivity,
+  BusinessCandidate,
+  BusinessIntakeForm,
+  BusinessReason,
+  BusinessRecommendation,
+  BusinessRequirement,
+  BusinessStructure,
   CitationBase,
   CorpusSearch,
   CorpusStats,
@@ -38,8 +49,11 @@ export type {
   HealthStatus,
   HistoryTurn,
   Language,
+  ReasonCode,
   ResolvedCitation,
   RouteInfo,
+  RuleFacet,
+  RuleSource,
   SearchHit,
   SearchMode,
   SearchQuery,
