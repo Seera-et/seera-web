@@ -32,7 +32,11 @@ export default defineConfig(({ mode }) => {
       // SSE answer stream pass through untouched.
       proxy: {
         '/api': { target: apiTarget, changeOrigin: true },
+        // Both, because the API serves the health handler on each: /readyz is
+        // what the app calls (Google Front End swallows /healthz on run.app),
+        // and /healthz stays proxied so curling it by hand still works in dev.
         '/healthz': { target: apiTarget, changeOrigin: true },
+        '/readyz': { target: apiTarget, changeOrigin: true },
       },
     },
     build: {

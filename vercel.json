@@ -3,28 +3,34 @@
   "framework": "vite",
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-
-  "//": "The app routes with createBrowserRouter (src/app/routes.tsx), so the server sees URLs like /explorer/<id> that have no file behind them. Vercel matches static files before rewrites, so this catch-all only ever fires for real routes and genuine 404s — both of which index.html is the right answer for.",
   "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
-
   "headers": [
     {
-      "//": "Vite fingerprints everything under /assets, so a given URL's contents never change.",
       "source": "/assets/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
       ]
     },
     {
-      "//": "index.html must not be cached, or a deploy leaves browsers loading asset URLs that no longer exist.",
       "source": "/",
-      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
     },
     {
       "source": "/(.*)",
       "headers": [
         { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
         { "key": "X-Frame-Options", "value": "DENY" }
       ]
     }

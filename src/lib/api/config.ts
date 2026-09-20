@@ -17,7 +17,11 @@ export function apiUrl(path: string): string {
 
 /** Paths, in one place, matching seera-backend-services/internal/server/routes.go. */
 export const endpoints = {
-  health: '/healthz',
+  // Not /healthz: Google Front End intercepts that exact path on *.run.app and
+  // never forwards it, so the connection indicator would read Offline against a
+  // perfectly healthy production API. The backend serves the same handler on
+  // both paths — see internal/server/routes.go.
+  health: '/readyz',
   me: `${API_PREFIX}/me`,
   qaQuery: `${API_PREFIX}/qa/query`,
   citation: (chunkId: string) =>
