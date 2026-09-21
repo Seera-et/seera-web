@@ -2,9 +2,9 @@
 
 interface ImportMetaEnv {
   /** Prefix put in front of every API path. Empty = same origin (dev proxy). */
-  readonly VITE_API_BASE_URL?: string
+  readonly API_BASE_URL?: string;
   /** Supabase project origin, e.g. https://<ref>.supabase.co. */
-  readonly VITE_SUPABASE_URL?: string
+  readonly VITE_SUPABASE_URL?: string;
   /**
    * Supabase publishable (anon) key.
    *
@@ -12,11 +12,11 @@ interface ImportMetaEnv {
    * identity, not an admin credential, and it is useless without a signed user
    * token. Unlike VITE_ADMIN_API_TOKEN below, this one is safe in Vercel.
    */
-  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string
+  readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   /** Local-development only. Bearer token for the admin ingest endpoint. */
-  readonly VITE_ADMIN_API_TOKEN?: string
+  readonly VITE_ADMIN_API_TOKEN?: string;
 }
 
 interface ImportMeta {
-  readonly env: ImportMetaEnv
+  readonly env: ImportMetaEnv;
 }

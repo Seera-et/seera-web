@@ -65,12 +65,12 @@ its startup log, not this app.
 Copy [.env.example](.env.example) to `.env.local` when you need to change
 anything. Two variables, two consumers:
 
-| Variable | Read by | Default |
-|---|---|---|
-| `API_PROXY_TARGET` | `vite.config.ts`, dev server only — never bundled | `http://localhost:8081` |
-| `VITE_API_BASE_URL` | the browser bundle | empty = same origin, via the proxy |
+| Variable           | Read by                                           | Default                            |
+| ------------------ | ------------------------------------------------- | ---------------------------------- |
+| `API_PROXY_TARGET` | `vite.config.ts`, dev server only — never bundled | `http://localhost:8081`            |
+| `API_BASE_URL`     | the browser bundle                                | empty = same origin, via the proxy |
 
-Set `VITE_API_BASE_URL` to an absolute origin only when talking to the API
+Set `API_BASE_URL` to an absolute origin only when talking to the API
 directly (then its `CORS_ALLOWED_ORIGINS` must include `http://localhost:5173`).
 
 ## Scripts
@@ -191,16 +191,16 @@ Theme is the only context. There is no Redux or Zustand.
 
 No screen renders invented data. Where something cannot be known, it says so.
 
-| Screen | State |
-|---|---|
-| Home | Live. Counters come from `GET /api/v1/corpus/stats`, counted over published versions — zero reads as zero. |
-| Chat | Live. Model-routed: legal questions retrieve and cite, follow-ups carry the sources already on screen, and anything else gets a general reply that cannot state Ethiopian law. Plus streaming, cancel, as-of dates and abstention. |
-| Legal Explorer | Live. `GET /api/v1/documents` with URL-driven filters and paging. |
-| Document view | Live. Versions, keyset-paginated articles, and the cited provision highlighted when the URL carries `?chunk=`. |
-| Bookmarks | Live, stored in this browser. |
-| History | Live: saved conversations, stored in this browser. |
-| About | Static content. |
-| Accounts, upgrade, document upload | Not wired. Controls are disabled and say why. |
+| Screen                             | State                                                                                                                                                                                                                              |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Home                               | Live. Counters come from `GET /api/v1/corpus/stats`, counted over published versions — zero reads as zero.                                                                                                                         |
+| Chat                               | Live. Model-routed: legal questions retrieve and cite, follow-ups carry the sources already on screen, and anything else gets a general reply that cannot state Ethiopian law. Plus streaming, cancel, as-of dates and abstention. |
+| Legal Explorer                     | Live. `GET /api/v1/documents` with URL-driven filters and paging.                                                                                                                                                                  |
+| Document view                      | Live. Versions, keyset-paginated articles, and the cited provision highlighted when the URL carries `?chunk=`.                                                                                                                     |
+| Bookmarks                          | Live, stored in this browser.                                                                                                                                                                                                      |
+| History                            | Live: saved conversations, stored in this browser.                                                                                                                                                                                 |
+| About                              | Static content.                                                                                                                                                                                                                    |
+| Accounts, upgrade, document upload | Not wired. Controls are disabled and say why.                                                                                                                                                                                      |
 
 ## Tests
 
