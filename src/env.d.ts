@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** Prefix put in front of every API path. Empty = same origin (dev proxy). */
-  readonly API_BASE_URL?: string;
+  /** Production API origin. Empty = same origin (the local Vite proxy). */
+  readonly VITE_API_BASE_URL?: string;
   /** Supabase project origin, e.g. https://<ref>.supabase.co. */
   readonly VITE_SUPABASE_URL?: string;
   /**

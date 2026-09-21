@@ -3,7 +3,7 @@
  * reads import.meta.env for API wiring.
  */
 
-const rawBase = (import.meta.env.API_BASE_URL ?? "").trim();
+const rawBase = (import.meta.env.VITE_API_BASE_URL ?? "").trim();
 
 /** Empty means same origin, which in dev is the Vite proxy in vite.config.ts. */
 export const API_BASE_URL = rawBase.replace(/\/+$/, "");

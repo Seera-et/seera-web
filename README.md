@@ -65,12 +65,12 @@ its startup log, not this app.
 Copy [.env.example](.env.example) to `.env.local` when you need to change
 anything. Two variables, two consumers:
 
-| Variable           | Read by                                           | Default                            |
-| ------------------ | ------------------------------------------------- | ---------------------------------- |
-| `API_PROXY_TARGET` | `vite.config.ts`, dev server only — never bundled | `http://localhost:8081`            |
-| `API_BASE_URL`     | the browser bundle                                | empty = same origin, via the proxy |
+| Variable            | Read by                                           | Default                            |
+| ------------------- | ------------------------------------------------- | ---------------------------------- |
+| `API_PROXY_TARGET`  | `vite.config.ts`, dev server only — never bundled | `http://localhost:8081`            |
+| `VITE_API_BASE_URL` | the browser bundle                                | empty = same origin, via the proxy |
 
-Set `API_BASE_URL` to an absolute origin only when talking to the API
+Set `VITE_API_BASE_URL` to an absolute origin only when talking to the API
 directly (then its `CORS_ALLOWED_ORIGINS` must include `http://localhost:5173`).
 
 ## Scripts
